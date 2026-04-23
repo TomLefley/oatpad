@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" aria-label="oatpad">
+  <style>
+    .stroke { stroke: #8b6a3e; }
+    .word { fill: #8b6a3e; font: 600 72px "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .stroke { stroke: #d4b382; }
+      .word { fill: #d4b382; }
+    }
+  </style>
+  <g transform="translate(12 22) scale(1.1)">
+    <g transform="rotate(20 24 24)" fill="none" class="stroke" stroke-linejoin="round" stroke-linecap="round">
+      <path stroke-width="7" d="M24 6 C34 10 37 18 37 26 C37 37 31 42 24 42 C17 42 11 37 11 26 C11 18 14 10 24 6 Z" />
+      <path stroke-width="5.5" d="M24 14 L24 34" />
+    </g>
+  </g>
+  <text class="word" x="72" y="82">atpad</text>
+</svg>
