@@ -24,9 +24,26 @@ const oatsFileTypes = [
   },
 ];
 
+function isTauri(): boolean {
+  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
 export async function saveFile(file: OatsFile): Promise<boolean> {
   const json = JSON.stringify(file, null, 2);
   const suggestedName = `${file.title}.oats`;
+
+  if (isTauri()) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+    const path = await save({
+      defaultPath: suggestedName,
+      filters: [{ name: "oatpad notes", extensions: ["oats"] }],
+    });
+    if (!path) return false;
+    await writeTextFile(path, json);
+    return true;
+  }
+
   const w = window as FSAWindow;
 
   if (w.showSaveFilePicker) {
@@ -63,6 +80,26 @@ export type LoadResult =
   | { ok: false; reason: "invalid"; error: string };
 
 export async function loadFile(): Promise<LoadResult> {
+  if (isTauri()) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    try {
+      const path = await open({
+        multiple: false,
+        filters: [{ name: "oatpad notes", extensions: ["oats"] }],
+      });
+      if (!path) return { ok: false, reason: "cancelled" };
+      const text = await readTextFile(path);
+      return parseResult(text);
+    } catch (err) {
+      return {
+        ok: false,
+        reason: "invalid",
+        error: (err as Error).message ?? "Could not open file",
+      };
+    }
+  }
+
   const w = window as FSAWindow;
 
   if (w.showOpenFilePicker) {

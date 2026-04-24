@@ -18,3 +18,9 @@ check:
 
 build:
     npm run build
+
+run-app:
+    npm run tauri:dev
+
+build-app:
+    npm run tauri:build
