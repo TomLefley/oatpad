@@ -7,13 +7,7 @@
     "core:default",
     "dialog:default",
     "fs:default",
-    {
-      "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$HOME/**" }]
-    },
-    {
-      "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$HOME/**" }]
-    }
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file"
   ]
 }

@@ -77,50 +77,53 @@ export async function saveFile(file: OatsFile): Promise<boolean> {
 export type LoadResult =
   | { ok: true; file: OatsFile }
   | { ok: false; reason: "cancelled" }
+  | { ok: false; reason: "io"; error: string }
   | { ok: false; reason: "invalid"; error: string };
 
 export async function loadFile(): Promise<LoadResult> {
   if (isTauri()) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    let text: string;
     try {
       const path = await open({
         multiple: false,
         filters: [{ name: "oatpad notes", extensions: ["oats"] }],
       });
       if (!path) return { ok: false, reason: "cancelled" };
-      const text = await readTextFile(path);
-      return parseResult(text);
+      text = await readTextFile(path);
     } catch (err) {
       return {
         ok: false,
-        reason: "invalid",
-        error: (err as Error).message ?? "Could not open file",
+        reason: "io",
+        error: (err as Error).message ?? "Could not read file",
       };
     }
+    return parseResult(text);
   }
 
   const w = window as FSAWindow;
 
   if (w.showOpenFilePicker) {
+    let text: string;
     try {
       const [handle] = await w.showOpenFilePicker({
         types: oatsFileTypes,
         multiple: false,
       });
       const file = await handle.getFile();
-      const text = await file.text();
-      return parseResult(text);
+      text = await file.text();
     } catch (err) {
       if ((err as DOMException).name === "AbortError") {
         return { ok: false, reason: "cancelled" };
       }
       return {
         ok: false,
-        reason: "invalid",
-        error: (err as Error).message ?? "Could not open file",
+        reason: "io",
+        error: (err as Error).message ?? "Could not read file",
       };
     }
+    return parseResult(text);
   }
 
   return new Promise((resolve) => {

@@ -25,6 +25,8 @@
     if (!result.ok) {
       if (result.reason === "invalid") {
         alert(`That file couldn't be loaded.\n\n${result.error}`);
+      } else if (result.reason === "io") {
+        alert(`Couldn't read that file.\n\n${result.error}`);
       }
       return;
     }
