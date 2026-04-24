@@ -7,6 +7,10 @@ import "@fontsource/poppins/600.css";
 import "quill/dist/quill.bubble.css";
 import "./app.css";
 
+if ("__TAURI_INTERNALS__" in window) {
+  document.documentElement.classList.add("tauri");
+}
+
 applyTheme(loadTheme());
 store.initSession();
 

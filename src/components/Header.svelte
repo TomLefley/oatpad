@@ -76,7 +76,7 @@
     /><span class="suffix">'s </span><span class="oat-word">oat</span><span
       class="pad">pad</span>
   </h1>
-  <div class="spacer"></div>
+  <div class="spacer" data-tauri-drag-region></div>
   <div class="actions">
     <button
       class="icon-btn"
@@ -128,6 +128,10 @@
     border-bottom: 1px solid var(--border);
     background: var(--surface);
   }
+  :global(html.tauri) header {
+    /* reserve room for the macOS traffic-light buttons */
+    padding-left: 110px;
+  }
   .title {
     margin: 0;
     font-family:
@@ -175,6 +179,7 @@
   }
   .spacer {
     flex: 1;
+    align-self: stretch;
   }
   .actions {
     display: flex;
