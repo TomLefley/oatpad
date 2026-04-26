@@ -84,15 +84,10 @@ body {
 button {
   font: inherit;
   background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
+  border: none;
+  padding: 0;
   cursor: pointer;
-  color: var(--fg);
-}
-
-button:hover {
-  background: var(--surface-hover);
+  color: inherit;
 }
 
 input[type="text"] {

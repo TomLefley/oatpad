@@ -1,4 +1,5 @@
 import type { OatsEvent, OatsFile, QuillDelta, QuillDeltaOp } from "./types";
+import { isNative } from "./platform";
 
 type FSAWindow = Window & {
   showSaveFilePicker?: (options?: {
@@ -24,15 +25,11 @@ const oatsFileTypes = [
   },
 ];
 
-function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-}
-
 export async function saveFile(file: OatsFile): Promise<boolean> {
   const json = JSON.stringify(file, null, 2);
-  const suggestedName = `${file.title}.oats`;
+  const suggestedName = `${suggestedFileBase(file)}.oats`;
 
-  if (isTauri()) {
+  if (isNative) {
     const { save } = await import("@tauri-apps/plugin-dialog");
     const { writeTextFile } = await import("@tauri-apps/plugin-fs");
     const path = await save({
@@ -81,7 +78,7 @@ export type LoadResult =
   | { ok: false; reason: "invalid"; error: string };
 
 export async function loadFile(): Promise<LoadResult> {
-  if (isTauri()) {
+  if (isNative) {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const { readTextFile } = await import("@tauri-apps/plugin-fs");
     let text: string;
@@ -274,6 +271,13 @@ function sanitizeOp(op: Record<string, unknown>): QuillDeltaOp {
 
 function isSafeUrl(u: string): boolean {
   return /^(https?:|mailto:|tel:|\/|#|\?)/i.test(u.trim());
+}
+
+export function suggestedFileBase(file: Pick<OatsFile, "title" | "createdAt">): string {
+  const name = file.title.trim() || "meeting";
+  // Replace characters that break common file systems with a space.
+  const safe = name.replace(/[\/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+  return `${safe} - ${file.createdAt}`;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

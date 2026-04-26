@@ -16,6 +16,7 @@
   import { matchInline } from "../lib/markdownShortcuts";
   import { computeCommit } from "../lib/commit";
   import * as store from "../lib/store.svelte";
+  import MeetingName from "./MeetingName.svelte";
 
   let container: HTMLDivElement | undefined = $state();
   let quill: Quill | null = null;
@@ -205,6 +206,7 @@
 </script>
 
 <div class="editor-wrap">
+  <MeetingName />
   <div bind:this={container} class="editor"></div>
 </div>
 
@@ -214,18 +216,18 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    background: var(--surface);
   }
   .editor {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    background: var(--surface);
   }
   :global(.ql-container.ql-bubble) {
     font-size: 16px;
   }
   :global(.ql-editor) {
     min-height: 300px;
-    padding: 24px 32px;
+    padding: 16px 32px 24px;
   }
 </style>
