@@ -6,6 +6,7 @@
   import CalendarPlus from "@lucide/svelte/icons/calendar-plus";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Save from "@lucide/svelte/icons/save";
+  import Search from "@lucide/svelte/icons/search";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
 
@@ -16,6 +17,8 @@
     sidebarCollapsed?: boolean;
     sidebarWidth?: number;
     ontogglesidebar?: () => void;
+    searchOpen?: boolean;
+    ontogglesearch?: () => void;
   };
   let {
     onnew,
@@ -24,6 +27,8 @@
     sidebarCollapsed = false,
     sidebarWidth = 240,
     ontogglesidebar,
+    searchOpen = false,
+    ontogglesearch,
   }: Props = $props();
 
   let draft = $state(store.state.notetaker);
@@ -99,6 +104,16 @@
       >
         <div class="expanded-icons">
           <span class="wobble theme-slot"><ThemeToggle /></span>
+          <button
+            class="icon-btn wobble search-slot"
+            class:active={searchOpen}
+            onclick={ontogglesearch}
+            aria-label="Search meetings"
+            aria-expanded={searchOpen}
+            title="Search meetings"
+          >
+            <Search size={18} strokeWidth={2} />
+          </button>
           <button
             class="icon-btn wobble new-slot"
             onclick={onnew}
@@ -236,7 +251,7 @@
       opacity 180ms ease;
   }
   .left-col.expanded .expanded-icons {
-    width: 68px;
+    width: 104px;
     margin-right: 4px;
     opacity: 1;
     pointer-events: auto;
@@ -307,7 +322,8 @@
     height: 32px;
     color: var(--icon);
   }
-  .icon-btn:hover {
+  .icon-btn:hover,
+  .icon-btn.active {
     color: var(--icon-active);
   }
   .icon-tray {
@@ -318,6 +334,9 @@
     display: inline-flex;
     align-items: center;
     --amp: 3px;
+  }
+  .search-slot {
+    --amp: 3.5px;
   }
   .new-slot {
     --amp: 4px;

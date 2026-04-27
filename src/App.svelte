@@ -8,6 +8,12 @@
 
   let editor: Editor | undefined = $state();
   let sidebarCollapsed = $state(false);
+  let searchOpen = $state(false);
+
+  $effect(() => {
+    // Search lives inside the sidebar; collapsing it should dismiss search.
+    if (sidebarCollapsed && searchOpen) searchOpen = false;
+  });
 
   const LS_SIDEBAR_WIDTH = "oatpad.sidebarWidth";
   function loadSidebarWidth(): number {
@@ -110,6 +116,8 @@
     {sidebarCollapsed}
     {sidebarWidth}
     ontogglesidebar={() => (sidebarCollapsed = !sidebarCollapsed)}
+    {searchOpen}
+    ontogglesearch={() => (searchOpen = !searchOpen)}
   />
   <div class="body">
     {#if isNative}
@@ -117,6 +125,8 @@
         collapsed={sidebarCollapsed}
         width={sidebarWidth}
         onswitch={handleSwitch}
+        {searchOpen}
+        oncloseSearch={() => (searchOpen = false)}
       />
     {/if}
     <div class="main">
