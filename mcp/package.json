@@ -6,7 +6,7 @@
   "description": "MCP server exposing oatpad meeting-note sessions over stdio",
   "scripts": {
     "build": "tsc",
-    "pack": "npm run build && mcpb pack . dist/oatpad.mcpb && mcpb clean dist/oatpad.mcpb"
+    "pack": "npm run build && npm prune --omit=dev && npx -y -p @anthropic-ai/mcpb@^2 mcpb pack . dist/oatpad.mcpb && npm install"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0"

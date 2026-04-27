@@ -4,6 +4,9 @@ tsconfig.json
 *.tsbuildinfo
 
 # Build artefacts and dev metadata that the bundle doesn't need.
-dist/
+# Anchor to the project root so we don't accidentally exclude `dist`
+# directories nested inside `node_modules/` (the @modelcontextprotocol/sdk
+# package, for one, ships its runtime as dist/esm and dist/cjs).
+/dist/
 .DS_Store
 *.log
