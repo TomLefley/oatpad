@@ -106,6 +106,17 @@
     await store.switchSession(id);
     editor?.reload();
   }
+
+  async function handleDelete(id: string): Promise<void> {
+    editor?.flush();
+    await store.deleteSessionById(id);
+    // If the deleted session was the current one, the store has installed a
+    // fresh blank session — reload so Quill drops the old contents and picks
+    // up the empty snapshot. (For non-current deletes the editor's session
+    // didn't change, but reload() is a cheap no-op replay of the current
+    // snapshot.)
+    editor?.reload();
+  }
 </script>
 
 <div class="app">
@@ -125,6 +136,7 @@
         collapsed={sidebarCollapsed}
         width={sidebarWidth}
         onswitch={handleSwitch}
+        ondelete={handleDelete}
         {searchOpen}
         oncloseSearch={() => (searchOpen = false)}
       />

@@ -89,7 +89,10 @@
     source: string,
   ): void {
     if (suppressCommit) return;
-    if (source === "user") applyInlineMarkdown();
+    if (source === "user") {
+      store.noteInput();
+      applyInlineMarkdown();
+    }
     if (quill) reconcileNoteIds(quill.root, uuid);
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(flush, IDLE_MS);
