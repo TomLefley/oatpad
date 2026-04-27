@@ -24,3 +24,6 @@ run-app:
 
 build-app:
     npm run tauri:build
+
+build-mcpb:
+    cd mcp && npm install && npm run pack

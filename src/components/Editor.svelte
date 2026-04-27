@@ -177,6 +177,10 @@
     quill = new Quill(container, {
       theme: "bubble",
       placeholder: "Start typing notes…",
+      // Constrain the bubble tooltip to the editor's own box so it can't
+      // overflow leftward into the sidebar's column when text near the
+      // left edge is selected.
+      bounds: container,
       modules: {
         toolbar: [
           [{ header: [1, 2, 3, false] }],

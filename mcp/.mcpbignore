@@ -1,0 +1,9 @@
+# TypeScript source — only the compiled `server/` directory needs to ship.
+src/
+tsconfig.json
+*.tsbuildinfo
+
+# Build artefacts and dev metadata that the bundle doesn't need.
+dist/
+.DS_Store
+*.log

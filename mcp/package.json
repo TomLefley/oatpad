@@ -1,0 +1,19 @@
+{
+  "name": "oatpad-mcp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP server exposing oatpad meeting-note sessions over stdio",
+  "scripts": {
+    "build": "tsc",
+    "pack": "npm run build && mcpb pack . dist/oatpad.mcpb && mcpb clean dist/oatpad.mcpb"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

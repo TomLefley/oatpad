@@ -8,7 +8,7 @@
   } from "../lib/theme";
   import Sun from "@lucide/svelte/icons/sun";
   import Moon from "@lucide/svelte/icons/moon";
-  import Monitor from "@lucide/svelte/icons/monitor";
+  import SunMoon from "@lucide/svelte/icons/sun-moon";
 
   let theme = $state<Theme>(loadTheme());
 
@@ -30,7 +30,7 @@
   title="Theme: {themeLabel} (click to cycle system → light → dark)"
 >
   {#if theme === "system"}
-    <Monitor size={18} strokeWidth={2} />
+    <SunMoon size={18} strokeWidth={2} />
   {:else if theme === "light"}
     <Sun size={18} strokeWidth={2} />
   {:else}

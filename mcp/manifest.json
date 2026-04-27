@@ -1,0 +1,34 @@
+{
+  "manifest_version": "0.2",
+  "name": "oatpad",
+  "display_name": "oatpad",
+  "version": "0.1.0",
+  "description": "Read your oatpad meeting-note sessions: list them, fetch one by id, or pull every session in a date range.",
+  "long_description": "Reads `.oats` session files written by the oatpad macOS app from its application data directory and exposes them as MCP tools. Read-only — the bundle never writes back to disk.",
+  "author": {
+    "name": "Tom Shelton-Lefley"
+  },
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
+    }
+  },
+  "tools": [
+    {
+      "name": "list_sessions",
+      "description": "List every oatpad meeting-note session, newest first."
+    },
+    {
+      "name": "get_session",
+      "description": "Retrieve a single oatpad session by id."
+    },
+    {
+      "name": "get_sessions_in_range",
+      "description": "Retrieve every oatpad session whose createdAt falls within an ISO 8601 datetime range."
+    }
+  ]
+}

@@ -62,7 +62,7 @@
     editor?.flush();
     if (store.hasUnsavedWork()) {
       const ok = confirm(
-        "This will discard your current session. Continue?",
+        "This will discard your current meeting. Continue?",
       );
       if (!ok) return;
     }
@@ -81,9 +81,9 @@
 
   function handleNew() {
     editor?.flush();
-    // In native mode, every session autosaves, so no confirmation needed.
+    // In native mode, every meeting autosaves, so no confirmation needed.
     if (!isNative && store.hasUnsavedWork()) {
-      const ok = confirm("Start a new session? Unsaved notes will be lost.");
+      const ok = confirm("Start a new meeting? Unsaved notes will be lost.");
       if (!ok) return;
     }
     store.startNewSession();
