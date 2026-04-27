@@ -89,14 +89,14 @@
       <!-- Spacer holds the layout space and animates its height via slide.
            It has no content, so the slide's overflow:hidden has nothing to
            clip — that's why it's a separate element from the bubble. -->
-      <div class="search-spacer" transition:slide={{ duration: 160 }}></div>
+      <div class="search-spacer" transition:slide={{ duration: 100 }}></div>
       <!-- Bubble lives in an absolutely-positioned anchor over the spacer
            area, so it can render with rounded ends regardless of the
            spacer's height during the slide. -->
       <div class="search-bubble-anchor">
         <div
           class="search-bubble"
-          out:scale={{ duration: 160 }}
+          out:scale={{ duration: 100 }}
           onanimationend={() => {
             inputVisible = true;
             searchInputEl?.focus();
@@ -293,9 +293,9 @@
        where the bubble paints at its natural (full) size — that's the
        square-ended flash the user was seeing. `animation-fill-mode: backwards`
        guarantees the 0% keyframe is painted from the very first frame.
-       The 80ms delay lets the spacer's slide finish first, so the bubble
+       The 50ms delay lets the spacer's slide finish first, so the bubble
        only becomes visible once there's space for it. */
-    animation: pop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms backwards;
+    animation: pop-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 50ms backwards;
   }
   @keyframes pop-in {
     0% {
@@ -346,7 +346,7 @@
     font-size: 13.5px;
     line-height: 1.5;
     opacity: 0;
-    transition: opacity 140ms ease;
+    transition: opacity 80ms ease;
   }
   input.search-input.visible {
     opacity: 1;
