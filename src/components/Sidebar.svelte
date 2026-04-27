@@ -1,5 +1,13 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
+  import {
+    monthStart,
+    ymdLocal,
+    buildCalendarCells,
+    fmtMonth,
+    fmtTimestamp,
+  } from "../lib/calendar";
+  import { labelFor, filterSessions } from "../lib/sessionFilter";
   import { tick } from "svelte";
   import { slide, scale } from "svelte/transition";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -67,64 +75,14 @@
     }
   });
 
-  function labelFor(title: string): string {
-    return title.trim() || "meeting";
-  }
-
-  function monthStart(d: Date): Date {
-    const x = new Date(d);
-    x.setDate(1);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  }
-
-  function ymdLocal(d: Date): string {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
   // YMD keys for sessions, used to mark calendar days that have meetings.
   const sessionDates = $derived(
     new Set(store.state.sessions.map((m) => ymdLocal(new Date(m.createdAt)))),
   );
 
-  type Cell = {
-    day: number;
-    ymd: string;
-    hasMeeting: boolean;
-    isToday: boolean;
-  };
-
-  const calendarCells = $derived.by<(Cell | null)[]>(() => {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const first = new Date(year, month, 1);
-    const last = new Date(year, month + 1, 0);
-    // Monday-first week. JS Date's getDay() is Sun=0..Sat=6; remap to Mon=0..Sun=6.
-    const firstWeekday = (first.getDay() + 6) % 7;
-    const todayYmd = ymdLocal(new Date());
-    const cells: (Cell | null)[] = [];
-    for (let i = 0; i < firstWeekday; i++) cells.push(null);
-    for (let d = 1; d <= last.getDate(); d++) {
-      const ymd = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      cells.push({
-        day: d,
-        ymd,
-        hasMeeting: sessionDates.has(ymd),
-        isToday: ymd === todayYmd,
-      });
-    }
-    // Pad to 6 rows × 7 cols so the grid's height stays stable when stepping
-    // through months with different first-weekday offsets.
-    while (cells.length < 42) cells.push(null);
-    return cells;
-  });
-
-  function fmtMonth(d: Date): string {
-    return d.toLocaleString("en-GB", { month: "long", year: "numeric" });
-  }
+  const calendarCells = $derived(
+    buildCalendarCells(viewMonth, sessionDates, new Date()),
+  );
 
   function shiftMonth(delta: number): void {
     const d = new Date(viewMonth);
@@ -155,19 +113,9 @@
     searchInputEl?.focus();
   }
 
-  const filteredSessions = $derived.by(() => {
-    if (searchMode === "date") {
-      if (!selectedDate) return store.state.sessions;
-      return store.state.sessions.filter(
-        (m) => ymdLocal(new Date(m.createdAt)) === selectedDate,
-      );
-    }
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return store.state.sessions;
-    return store.state.sessions.filter((m) =>
-      labelFor(m.title).toLowerCase().includes(q),
-    );
-  });
+  const filteredSessions = $derived(
+    filterSessions(store.state.sessions, searchMode, searchQuery, selectedDate),
+  );
 
   function handleSearchKeydown(e: KeyboardEvent): void {
     if (e.key === "Escape") {
@@ -181,29 +129,6 @@
       e.preventDefault();
       oncloseSearch?.();
     }
-  }
-
-  // For sessions started today show the time; for older sessions show the
-  // date. Keeps the column narrow whatever the row's age.
-  function fmtTimestamp(iso: string): string {
-    const d = new Date(iso);
-    const now = new Date();
-    const sameDay =
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate();
-    if (sameDay) {
-      return d.toLocaleString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    return d
-      .toLocaleString("en-GB", {
-        day: "numeric",
-        month: "short",
-      })
-      .replace(",", "");
   }
 
   async function handleDelete(id: string, label: string): Promise<void> {

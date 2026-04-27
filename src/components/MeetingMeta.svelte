@@ -1,47 +1,23 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
+  import { editBounds, phaseFor, type Phase } from "../lib/meetingPhase";
 
   const createdAt = $derived(store.state.session?.createdAt);
 
-  // First and latest *edits*, blending two sources:
-  //   • Committed edit events (`note_created`/`note_edited`/`note_deleted`).
-  //   • Live input markers from the store, bumped on every keystroke so the
-  //     header reacts immediately rather than waiting for the editor's
-  //     debounced commit (~3s after a keystroke / on block change).
-  // Bookkeeping events (`session_started`, `file_loaded`) are excluded.
-  const editBounds = $derived.by(() => {
-    const events = store.state.session?.events ?? [];
-    let first: string | null = null;
-    let last: string | null = null;
-    for (const e of events) {
-      if (
-        e.type === "note_created" ||
-        e.type === "note_edited" ||
-        e.type === "note_deleted"
-      ) {
-        if (!first || e.ts < first) first = e.ts;
-        if (!last || e.ts > last) last = e.ts;
-      }
-    }
-    const fi = store.state.firstInputAt;
-    const li = store.state.lastInputAt;
-    if (fi && (!first || fi < first)) first = fi;
-    if (li && (!last || li > last)) last = li;
-    return { first, last };
-  });
+  const bounds = $derived(
+    editBounds(
+      store.state.session?.events ?? [],
+      store.state.firstInputAt,
+      store.state.lastInputAt,
+    ),
+  );
 
-  // Phase progression after the latest edit:
-  //   <1m   → "live"   (animated ellipsis)
-  //   1–3m  → "idle"   (static ellipsis)
-  //   ≥3m   → "ended"  (real end timestamp)
-  // No edits at all → "none" (only the start time is shown).
-  type Phase = "none" | "live" | "idle" | "ended";
   let phase = $state<Phase>("none");
 
   // Self-driving chain: each timeout advances `phase` and schedules the next.
   // Re-runs whenever the latest edit changes (a new edit resets the clock).
   $effect(() => {
-    const last = editBounds.last;
+    const last = bounds.last;
     if (!last) {
       phase = "none";
       return;
@@ -50,14 +26,11 @@
     let timer: ReturnType<typeof setTimeout> | null = null;
     const tick = (): void => {
       const since = Date.now() - lastMs;
-      if (since < 60_000) {
-        phase = "live";
+      phase = phaseFor(since, true);
+      if (phase === "live") {
         timer = setTimeout(tick, 60_000 - since + 50);
-      } else if (since < 180_000) {
-        phase = "idle";
+      } else if (phase === "idle") {
         timer = setTimeout(tick, 180_000 - since + 50);
-      } else {
-        phase = "ended";
       }
     };
     tick();
@@ -66,7 +39,7 @@
     };
   });
 
-  const startTs = $derived(editBounds.first ?? createdAt ?? null);
+  const startTs = $derived(bounds.first ?? createdAt ?? null);
 
   function fmt(iso: string): string {
     const d = new Date(iso);
@@ -86,8 +59,8 @@
     <span class="ts">{fmt(startTs)}</span>
     {#if phase !== "none"}
       <span class="arrow" aria-hidden="true">→</span>
-      {#if phase === "ended" && editBounds.last}
-        <span class="ts">{fmt(editBounds.last)}</span>
+      {#if phase === "ended" && bounds.last}
+        <span class="ts">{fmt(bounds.last)}</span>
       {:else}
         <span
           class="ellipsis"

@@ -6,6 +6,8 @@
   "description": "MCP server exposing oatpad meeting-note sessions over stdio",
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "pack": "npm run build && npm prune --omit=dev && npx -y -p @anthropic-ai/mcpb@^2 mcpb pack . dist/oatpad.mcpb && npm install"
   },
   "dependencies": {
@@ -14,6 +16,7 @@
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^22.0.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.5"
   }
 }

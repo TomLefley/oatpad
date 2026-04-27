@@ -9,6 +9,7 @@ run:
 
 test:
     npm test
+    cd mcp && npm test
 
 test-watch:
     npm run test:watch
