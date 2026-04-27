@@ -43,12 +43,17 @@
     function onUp(): void {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      // Also tear down on blur — covers the case where the user releases
+      // the mouse outside the window or alt-tabs mid-drag, which would
+      // otherwise leave the cursor / userSelect / html.resizing stuck.
+      window.removeEventListener("blur", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       document.documentElement.classList.remove("resizing");
     }
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
+    window.addEventListener("blur", onUp);
   }
 
   async function handleSave() {

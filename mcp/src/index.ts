@@ -56,15 +56,20 @@ type OatsFile = {
 function isOatsFile(v: unknown): v is OatsFile {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return (
-    o.version === 1 &&
-    typeof o.sessionId === "string" &&
-    typeof o.notetaker === "string" &&
-    typeof o.title === "string" &&
-    typeof o.createdAt === "string" &&
-    Array.isArray(o.events) &&
-    typeof o.snapshot === "object"
-  );
+  if (
+    o.version !== 1 ||
+    typeof o.sessionId !== "string" ||
+    typeof o.notetaker !== "string" ||
+    typeof o.title !== "string" ||
+    typeof o.createdAt !== "string" ||
+    !Array.isArray(o.events) ||
+    !Array.isArray(o.paragraphIds)
+  ) {
+    return false;
+  }
+  if (!o.snapshot || typeof o.snapshot !== "object") return false;
+  const snap = o.snapshot as Record<string, unknown>;
+  return Array.isArray(snap.ops);
 }
 
 function metaOf(file: OatsFile): SessionMeta {
@@ -116,15 +121,22 @@ async function getSessionsInRange(
   start: string,
   end: string,
 ): Promise<OatsFile[]> {
-  if (Number.isNaN(Date.parse(start)) || Number.isNaN(Date.parse(end))) {
+  // Compare in milliseconds, not by string lexicographic order — string
+  // compare breaks when callers pass partial ISO dates like "2026-04-02",
+  // which sort *before* "2026-04-02T..." and would wrongly exclude
+  // sessions that fell on that day.
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
     throw new Error("`start` and `end` must be ISO 8601 datetimes");
   }
-  const lo = start <= end ? start : end;
-  const hi = start <= end ? end : start;
+  const lo = Math.min(startMs, endMs);
+  const hi = Math.max(startMs, endMs);
   const metas = await listSessions();
   const matched: OatsFile[] = [];
   for (const meta of metas) {
-    if (meta.createdAt < lo || meta.createdAt > hi) continue;
+    const ts = Date.parse(meta.createdAt);
+    if (Number.isNaN(ts) || ts < lo || ts > hi) continue;
     const file = await readSessionFile(`${meta.sessionId}.oats`);
     if (file) matched.push(file);
   }
