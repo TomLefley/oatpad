@@ -66,9 +66,27 @@ export const state = $state({
   session: null as Session | null,
   sessions: [] as SessionMeta[],
   persistError: null as "quota" | "other" | null,
+  // Live input markers — bumped on every keystroke, independent of the
+  // editor's debounced commit. They give the meeting-meta header a reactive
+  // signal so the start time and progress indicator can update immediately,
+  // not 3s later when the first batch of events flushes. Not persisted.
+  firstInputAt: null as string | null,
+  lastInputAt: null as string | null,
 });
 
+export function noteInput(): void {
+  const ts = new Date().toISOString();
+  if (!state.firstInputAt) state.firstInputAt = ts;
+  state.lastInputAt = ts;
+}
+
+function clearInputMarkers(): void {
+  state.firstInputAt = null;
+  state.lastInputAt = null;
+}
+
 export async function initSession(): Promise<void> {
+  clearInputMarkers();
   if (isNative) {
     await initNativeSession();
     return;
@@ -182,6 +200,7 @@ export function setSnapshot(snapshot: QuillDelta, paragraphIds: string[]): void 
 }
 
 export function startNewSession(): void {
+  clearInputMarkers();
   state.session = blankSession(state.notetaker);
   if (isNative) {
     // Add to sidebar immediately; the debounced persist will land shortly.
@@ -197,27 +216,47 @@ export async function switchSession(id: string): Promise<void> {
   const { loadSession } = await import("./sessions");
   const file = await loadSession(id);
   if (!file) return;
+  clearInputMarkers();
   state.session = fileToSession(file);
 }
 
 export async function deleteSessionById(id: string): Promise<void> {
   if (!isNative) return;
   const wasCurrent = state.session?.sessionId === id;
+  const remaining = state.sessions.filter((m) => m.sessionId !== id);
+  state.sessions = remaining;
+
   if (wasCurrent) {
-    // Never leave the UI session-less.
-    state.session = blankSession(state.notetaker);
+    clearInputMarkers();
+    if (remaining.length > 0) {
+      // Hand the user the next-most-recent meeting rather than a phantom
+      // blank. `state.sessions` is kept newest-first, so [0] is correct.
+      const { loadSession } = await import("./sessions");
+      const file = await loadSession(remaining[0].sessionId);
+      state.session = file
+        ? fileToSession(file)
+        : blankSession(state.notetaker);
+    } else {
+      // No meetings left — start a fresh blank so the UI is never empty.
+      state.session = blankSession(state.notetaker);
+    }
   }
-  state.sessions = state.sessions.filter((m) => m.sessionId !== id);
+
   await flushPersist();
   const { deleteSession, saveSession } = await import("./sessions");
   await deleteSession(id);
-  if (wasCurrent && state.session) {
+  // Only persist + register the current session when we created a new blank
+  // (i.e. there were no remaining meetings to fall back to). Switching to an
+  // existing meeting needs neither — its file is already on disk and its
+  // sidebar entry is already in `remaining`.
+  if (wasCurrent && remaining.length === 0 && state.session) {
     await saveSession(toOatsFileFrom(state.session));
     refreshCurrentMeta();
   }
 }
 
 export function replaceSessionFromFile(file: OatsFile): void {
+  clearInputMarkers();
   const loadedAt = new Date().toISOString();
   state.session = {
     ...file,
