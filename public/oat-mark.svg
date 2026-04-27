@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" aria-label="oat">
+  <style>
+    .body { fill: #8b6a3e; }
+    .crease { stroke: #faf6ed; }
+    @media (prefers-color-scheme: dark) {
+      .body { fill: #d4b382; }
+      .crease { stroke: #1a1611; }
+    }
+  </style>
+  <g transform="rotate(20 24 24)">
+    <path class="body" d="M24 6 C34 10 37 18 37 26 C37 37 31 42 24 42 C17 42 11 37 11 26 C11 18 14 10 24 6 Z" />
+    <path class="crease" fill="none" stroke-width="4" stroke-linecap="round" d="M24 14 L24 34" />
+  </g>
+</svg>
