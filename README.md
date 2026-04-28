@@ -8,34 +8,31 @@ See [SPEC.md](./SPEC.md) for product requirements.
 
 ## Run
 
-Oatpad ships in two forms.
-
-**As a Mac native app** (the primary target — autosaves every meeting to disk
-and shows them in a left sidebar):
+Oatpad's primary form is a **Mac native app** — autosaves every meeting to
+disk and shows them in a left sidebar:
 
 ```sh
-just run-app      # dev window pointed at Vite
-just build-app    # produce src-tauri/target/release/bundle/macos/Oatpad.app
+just run        # dev window pointed at Vite
+just build      # produce src/target/release/bundle/macos/Oatpad.app
 ```
 
 The bundle is unsigned; first launch requires right-click → Open to bypass
 Gatekeeper.
 
-**As a web page** (single in-flight meeting, explicit Save / Open / New):
+It also runs as a **web page** (single in-flight meeting, explicit Save / Open
+/ New):
 
 ```sh
-npm install
-npm run dev
+just run-web    # vite dev server
+just build-web  # static build into dist/
 ```
-
-Then open the printed URL.
 
 ## Test
 
 ```sh
-npm test           # unit tests
-npm run check      # svelte-check + tsc
-npm run build      # production web build
+just test       # unit tests (frontend + mcp)
+just check      # svelte-check + tsc
+just build-web  # production web build
 ```
 
 ## File format
@@ -96,7 +93,7 @@ bundle to attach the server.
 ## Project layout
 
 ```
-src/                Svelte 5 + Vite frontend (shared by web + native)
-src-tauri/          Tauri v2 wrapper that produces the macOS .app
+src/                Tauri v2 wrapper (Rust + tauri.conf) that produces the macOS .app
+src-web/            Svelte 5 + Vite frontend (shared by app + web)
 mcp/                Standalone Node MCP server packaged as an .mcpb bundle
 ```

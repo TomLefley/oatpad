@@ -3,5 +3,5 @@ dist
 .DS_Store
 *.log
 .vite
-src-tauri/target
-src-tauri/gen
+src/target
+src/gen
