@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /*
- * MCP server that exposes oatpad's meeting-note sessions read-only.
+ * MCP server that exposes Oatpad's meeting notes read-only.
  *
- * Sessions live as `<sessionId>.oats` (JSON) inside the macOS app's data
+ * Meetings live as `<meetingId>.oats` (JSON) inside the macOS app's data
  * directory. We read them at request time — no caching, no watching — so
- * the server always reflects what oatpad has just saved.
+ * the server always reflects what Oatpad has just saved.
  *
- * The actual session-reading logic lives in ./sessions.ts so it can be
+ * The actual meeting-reading logic lives in ./meetings.ts so it can be
  * unit-tested without bringing up an stdio transport.
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -18,24 +18,24 @@ import {
 import { join } from "node:path";
 import {
   appDataDir,
-  getSession,
-  getSessionsInRange,
-  listSessions,
-} from "./sessions.js";
+  getMeeting,
+  getMeetingsInRange,
+  listMeetings,
+} from "./meetings.js";
 
-const SESSIONS_DIR = join(appDataDir(), "sessions");
+const MEETINGS_DIR = join(appDataDir(), "meetings");
 
 const server = new Server(
-  { name: "oatpad", version: "0.1.0" },
+  { name: "Oatpad", version: "0.1.0" },
   { capabilities: { tools: {} } },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: "list_sessions",
+      name: "list_meetings",
       description:
-        "List every oatpad meeting-note session, newest first. Each entry has its sessionId, the user-supplied title (empty if unnamed), a displayName that falls back to \"meeting\" when the title is blank, the createdAt ISO timestamp, and the notetaker name.",
+        "List every Oatpad meeting, newest first. Each entry has its meetingId, the user-supplied title (empty if unnamed), a displayName that falls back to \"meeting\" when the title is blank, the createdAt ISO timestamp, and the notetaker name.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -43,25 +43,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     {
-      name: "get_session",
+      name: "get_meeting",
       description:
-        "Retrieve a single oatpad session by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata).",
+        "Retrieve a single Oatpad meeting by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata).",
       inputSchema: {
         type: "object",
         properties: {
-          sessionId: {
+          meetingId: {
             type: "string",
-            description: "The session UUID (the filename stem under sessions/).",
+            description: "The meeting UUID (the filename stem under meetings/).",
           },
         },
-        required: ["sessionId"],
+        required: ["meetingId"],
         additionalProperties: false,
       },
     },
     {
-      name: "get_sessions_in_range",
+      name: "get_meetings_in_range",
       description:
-        "Retrieve every oatpad session whose createdAt falls within the given ISO 8601 datetime range, inclusive on both ends. Returns full OatsFile JSON for each match, newest first.",
+        "Retrieve every Oatpad meeting whose createdAt falls within the given ISO 8601 datetime range, inclusive on both ends. Returns full OatsFile JSON for each match, newest first.",
       inputSchema: {
         type: "object",
         properties: {
@@ -86,43 +86,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
 
-  if (name === "list_sessions") {
-    const metas = await listSessions(SESSIONS_DIR);
+  if (name === "list_meetings") {
+    const summaries = await listMeetings(MEETINGS_DIR);
     return {
-      content: [{ type: "text", text: JSON.stringify(metas, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(summaries, null, 2) }],
     };
   }
 
-  if (name === "get_session") {
-    const sessionId = (args as { sessionId?: unknown })?.sessionId;
-    if (typeof sessionId !== "string") {
-      throw new Error("`sessionId` must be a string");
+  if (name === "get_meeting") {
+    const meetingId = (args as { meetingId?: unknown })?.meetingId;
+    if (typeof meetingId !== "string") {
+      throw new Error("`meetingId` must be a string");
     }
-    const session = await getSession(SESSIONS_DIR, sessionId);
-    if (!session) {
+    const meeting = await getMeeting(MEETINGS_DIR, meetingId);
+    if (!meeting) {
       return {
         isError: true,
         content: [
           {
             type: "text",
-            text: `No oatpad session found with id ${JSON.stringify(sessionId)}.`,
+            text: `No Oatpad meeting found with id ${JSON.stringify(meetingId)}.`,
           },
         ],
       };
     }
     return {
-      content: [{ type: "text", text: JSON.stringify(session, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(meeting, null, 2) }],
     };
   }
 
-  if (name === "get_sessions_in_range") {
+  if (name === "get_meetings_in_range") {
     const a = args as { start?: unknown; end?: unknown };
     if (typeof a?.start !== "string" || typeof a?.end !== "string") {
       throw new Error("`start` and `end` must both be ISO 8601 strings");
     }
-    const sessions = await getSessionsInRange(SESSIONS_DIR, a.start, a.end);
+    const meetings = await getMeetingsInRange(MEETINGS_DIR, a.start, a.end);
     return {
-      content: [{ type: "text", text: JSON.stringify(sessions, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(meetings, null, 2) }],
     };
   }
 

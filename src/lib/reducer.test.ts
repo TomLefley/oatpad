@@ -13,9 +13,9 @@ describe("replay", () => {
     expect(state.notes.size).toBe(0);
   });
 
-  it("captures session metadata", () => {
+  it("captures meeting metadata", () => {
     const state = replay([
-      ev({ type: "session_started", id: "e1", ts: "t0", notetaker: "Tom" }),
+      ev({ type: "meeting_started", id: "e1", ts: "t0", notetaker: "Tom" }),
     ]);
     expect(state.notetaker).toBe("Tom");
   });

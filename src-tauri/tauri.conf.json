@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "oatpad",
+  "productName": "Oatpad",
   "version": "0.1.0",
   "identifier": "com.tomlefley.oatpad",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "oatpad",
+        "title": "Oatpad",
         "width": 1100,
         "height": 780,
         "minWidth": 600,

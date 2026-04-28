@@ -1,13 +1,13 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
 
-  let draft = $state(store.state.session?.title ?? "");
+  let draft = $state(store.state.meeting?.title ?? "");
   let inputEl: HTMLInputElement | undefined = $state();
 
   // Keep local draft aligned with the store when the user isn't actively
-  // editing — covers session switches and autosave-driven title changes.
+  // editing — covers meeting switches and autosave-driven title changes.
   $effect(() => {
-    const t = store.state.session?.title ?? "";
+    const t = store.state.meeting?.title ?? "";
     if (t !== draft && document.activeElement !== inputEl) {
       draft = t;
     }
@@ -23,7 +23,7 @@
     if (e.key === "Enter") {
       inputEl?.blur();
     } else if (e.key === "Escape") {
-      draft = store.state.session?.title ?? "";
+      draft = store.state.meeting?.title ?? "";
       inputEl?.blur();
     }
   }

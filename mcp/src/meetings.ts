@@ -1,9 +1,9 @@
 /*
- * Pure session-reading helpers, factored out of index.ts so they can be
+ * Pure meeting-reading helpers, factored out of index.ts so they can be
  * unit-tested against a temp directory without spinning up the MCP stdio
  * server.
  *
- * Every function takes the sessions directory as an argument; the caller
+ * Every function takes the meetings directory as an argument; the caller
  * (index.ts) supplies the per-platform path resolved by appDataDir().
  */
 import { readFile, readdir } from "node:fs/promises";
@@ -26,8 +26,8 @@ export function appDataDir(): string {
   return join(base, APP_ID);
 }
 
-export type SessionMeta = {
-  sessionId: string;
+export type MeetingSummary = {
+  meetingId: string;
   title: string;
   displayName: string;
   createdAt: string;
@@ -36,7 +36,7 @@ export type SessionMeta = {
 
 export type OatsFile = {
   version: 1;
-  sessionId: string;
+  meetingId: string;
   notetaker: string;
   title: string;
   createdAt: string;
@@ -50,7 +50,7 @@ export function isOatsFile(v: unknown): v is OatsFile {
   const o = v as Record<string, unknown>;
   if (
     o.version !== 1 ||
-    typeof o.sessionId !== "string" ||
+    typeof o.meetingId !== "string" ||
     typeof o.notetaker !== "string" ||
     typeof o.title !== "string" ||
     typeof o.createdAt !== "string" ||
@@ -64,10 +64,10 @@ export function isOatsFile(v: unknown): v is OatsFile {
   return Array.isArray(snap.ops);
 }
 
-export function metaOf(file: OatsFile): SessionMeta {
+export function summaryOf(file: OatsFile): MeetingSummary {
   const trimmed = file.title.trim();
   return {
-    sessionId: file.sessionId,
+    meetingId: file.meetingId,
     title: file.title,
     displayName: trimmed || "meeting",
     createdAt: file.createdAt,
@@ -75,7 +75,7 @@ export function metaOf(file: OatsFile): SessionMeta {
   };
 }
 
-export async function readSessionFile(
+export async function readMeetingFile(
   dir: string,
   name: string,
 ): Promise<OatsFile | null> {
@@ -88,36 +88,36 @@ export async function readSessionFile(
   }
 }
 
-export async function listSessions(dir: string): Promise<SessionMeta[]> {
+export async function listMeetings(dir: string): Promise<MeetingSummary[]> {
   let entries: string[];
   try {
     entries = await readdir(dir);
   } catch {
     return [];
   }
-  const metas: SessionMeta[] = [];
+  const summaries: MeetingSummary[] = [];
   for (const name of entries) {
     if (!name.endsWith(".oats")) continue;
-    const file = await readSessionFile(dir, name);
-    if (file) metas.push(metaOf(file));
+    const file = await readMeetingFile(dir, name);
+    if (file) summaries.push(summaryOf(file));
   }
   // Newest first — ISO strings sort lexicographically by time.
-  metas.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return metas;
+  summaries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return summaries;
 }
 
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
-export async function getSession(
+export async function getMeeting(
   dir: string,
-  sessionId: string,
+  meetingId: string,
 ): Promise<OatsFile | null> {
-  // Guard against path traversal — sessionId is meant to be a UUID.
-  if (!SAFE_ID.test(sessionId)) return null;
-  return readSessionFile(dir, `${sessionId}.oats`);
+  // Guard against path traversal — meetingId is meant to be a UUID.
+  if (!SAFE_ID.test(meetingId)) return null;
+  return readMeetingFile(dir, `${meetingId}.oats`);
 }
 
-export async function getSessionsInRange(
+export async function getMeetingsInRange(
   dir: string,
   start: string,
   end: string,
@@ -125,7 +125,7 @@ export async function getSessionsInRange(
   // Compare in milliseconds, not by string lexicographic order — string
   // compare breaks when callers pass partial ISO dates like "2026-04-02",
   // which sort *before* "2026-04-02T..." and would wrongly exclude
-  // sessions that fell on that day.
+  // meetings that fell on that day.
   const startMs = Date.parse(start);
   const endMs = Date.parse(end);
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
@@ -133,12 +133,12 @@ export async function getSessionsInRange(
   }
   const lo = Math.min(startMs, endMs);
   const hi = Math.max(startMs, endMs);
-  const metas = await listSessions(dir);
+  const summaries = await listMeetings(dir);
   const matched: OatsFile[] = [];
-  for (const meta of metas) {
-    const ts = Date.parse(meta.createdAt);
+  for (const summary of summaries) {
+    const ts = Date.parse(summary.createdAt);
     if (Number.isNaN(ts) || ts < lo || ts > hi) continue;
-    const file = await readSessionFile(dir, `${meta.sessionId}.oats`);
+    const file = await readMeetingFile(dir, `${summary.meetingId}.oats`);
     if (file) matched.push(file);
   }
   return matched;

@@ -7,7 +7,7 @@
     fmtMonth,
     fmtTimestamp,
   } from "../lib/calendar";
-  import { labelFor, filterSessions } from "../lib/sessionFilter";
+  import { labelFor, filterMeetings } from "../lib/meetingFilter";
   import { tick } from "svelte";
   import { slide, scale } from "svelte/transition";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -75,13 +75,13 @@
     }
   });
 
-  // YMD keys for sessions, used to mark calendar days that have meetings.
-  const sessionDates = $derived(
-    new Set(store.state.sessions.map((m) => ymdLocal(new Date(m.createdAt)))),
+  // YMD keys for meetings, used to mark calendar days that have meetings.
+  const meetingDates = $derived(
+    new Set(store.state.meetings.map((m) => ymdLocal(new Date(m.createdAt)))),
   );
 
   const calendarCells = $derived(
-    buildCalendarCells(viewMonth, sessionDates, new Date()),
+    buildCalendarCells(viewMonth, meetingDates, new Date()),
   );
 
   function shiftMonth(delta: number): void {
@@ -113,8 +113,8 @@
     searchInputEl?.focus();
   }
 
-  const filteredSessions = $derived(
-    filterSessions(store.state.sessions, searchMode, searchQuery, selectedDate),
+  const filteredMeetings = $derived(
+    filterMeetings(store.state.meetings, searchMode, searchQuery, selectedDate),
   );
 
   function handleSearchKeydown(e: KeyboardEvent): void {
@@ -268,13 +268,13 @@
       </div>
     {/if}
     <ul class="list">
-      {#each filteredSessions as meta (meta.sessionId)}
-        {@const current = store.state.session?.sessionId === meta.sessionId}
-        {@const label = labelFor(meta.title)}
+      {#each filteredMeetings as summary (summary.meetingId)}
+        {@const current = store.state.meeting?.meetingId === summary.meetingId}
+        {@const label = labelFor(summary.title)}
         <li class="row" class:current>
           <button
             class="row-main"
-            onclick={() => onswitch(meta.sessionId)}
+            onclick={() => onswitch(summary.meetingId)}
             title={label}
           >
             <span class="row-label">{label}</span>
@@ -284,13 +284,13 @@
                column is also clickable. -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="row-right" onclick={() => onswitch(meta.sessionId)}>
-            <span class="row-time">{fmtTimestamp(meta.createdAt)}</span>
+          <div class="row-right" onclick={() => onswitch(summary.meetingId)}>
+            <span class="row-time">{fmtTimestamp(summary.createdAt)}</span>
             <button
               class="row-del"
               onclick={(e) => {
                 e.stopPropagation();
-                handleDelete(meta.sessionId, label);
+                handleDelete(summary.meetingId, label);
               }}
               aria-label="Delete meeting"
               title="Delete meeting"

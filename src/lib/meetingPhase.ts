@@ -2,7 +2,7 @@ import type { OatsEvent } from "./types";
 
 // Combines committed edit events with live keystroke markers to produce the
 // effective first-edit and last-edit timestamps shown in MeetingMeta.
-// Bookkeeping events (`session_started`, `file_loaded`) are excluded.
+// Bookkeeping events (`meeting_started`, `file_loaded`) are excluded.
 export function editBounds(
   events: readonly OatsEvent[],
   firstInputAt: string | null,

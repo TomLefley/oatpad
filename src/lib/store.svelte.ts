@@ -1,14 +1,14 @@
 import type { OatsEvent, OatsFile, QuillDelta } from "./types";
 import { uuid } from "./ids";
 import { isNative } from "./platform";
-import type { SessionMeta } from "./sessions";
+import type { MeetingSummary } from "./meetings";
 
-const LS_KEY = "oatpad.session";
+const LS_KEY = "oatpad.meeting";
 const LS_NOTETAKER = "oatpad.notetaker";
 
-export type Session = {
+export type Meeting = {
   version: 1;
-  sessionId: string;
+  meetingId: string;
   notetaker: string;
   title: string;
   createdAt: string;
@@ -21,18 +21,18 @@ function newSnapshot(): QuillDelta {
   return { ops: [{ insert: "\n" }] };
 }
 
-function blankSession(notetaker: string): Session {
+function blankMeeting(notetaker: string): Meeting {
   const createdAt = new Date().toISOString();
-  const sessionId = uuid();
+  const meetingId = uuid();
   return {
     version: 1,
-    sessionId,
+    meetingId,
     notetaker,
     title: "",
     createdAt,
     events: [
       {
-        type: "session_started",
+        type: "meeting_started",
         id: uuid(),
         ts: createdAt,
         notetaker,
@@ -48,12 +48,12 @@ function loadNotetaker(): string {
   return localStorage.getItem(LS_NOTETAKER) ?? "";
 }
 
-function loadSessionFromLocalStorage(): Session | null {
+function loadMeetingFromLocalStorage(): Meeting | null {
   if (typeof localStorage === "undefined") return null;
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Session;
+    const parsed = JSON.parse(raw) as Meeting;
     if (parsed.version !== 1) return null;
     return parsed;
   } catch {
@@ -63,8 +63,8 @@ function loadSessionFromLocalStorage(): Session | null {
 
 export const state = $state({
   notetaker: loadNotetaker(),
-  session: null as Session | null,
-  sessions: [] as SessionMeta[],
+  meeting: null as Meeting | null,
+  meetings: [] as MeetingSummary[],
   persistError: null as "quota" | "other" | null,
   // Live input markers — bumped on every keystroke, independent of the
   // editor's debounced commit. They give the meeting-meta header a reactive
@@ -85,64 +85,64 @@ function clearInputMarkers(): void {
   state.lastInputAt = null;
 }
 
-export async function initSession(): Promise<void> {
+export async function initMeeting(): Promise<void> {
   clearInputMarkers();
   if (isNative) {
-    await initNativeSession();
+    await initNativeMeeting();
     return;
   }
-  const existing = loadSessionFromLocalStorage();
+  const existing = loadMeetingFromLocalStorage();
   if (existing) {
-    state.session = existing;
+    state.meeting = existing;
     if (!state.notetaker && existing.notetaker) {
       state.notetaker = existing.notetaker;
     }
     return;
   }
-  state.session = blankSession(state.notetaker);
+  state.meeting = blankMeeting(state.notetaker);
   persist();
 }
 
-async function initNativeSession(): Promise<void> {
-  const { listSessions, saveSession } = await import("./sessions");
-  let metas = await listSessions();
+async function initNativeMeeting(): Promise<void> {
+  const { listMeetings, saveMeeting } = await import("./meetings");
+  let summaries = await listMeetings();
 
-  if (metas.length === 0) {
-    // First launch inside the .app. If a single in-flight session happens to
+  if (summaries.length === 0) {
+    // First launch inside the .app. If a single in-flight meeting happens to
     // be sitting in localStorage (e.g. from a prior web run or the pre-
     // autosave build), migrate it to disk.
-    const legacy = loadSessionFromLocalStorage();
+    const legacy = loadMeetingFromLocalStorage();
     if (legacy) {
-      await saveSession(toOatsFileFrom(legacy));
-      metas = await listSessions();
+      await saveMeeting(toOatsFileFrom(legacy));
+      summaries = await listMeetings();
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem(LS_KEY);
       }
     }
   }
 
-  if (metas.length === 0) {
-    const blank = blankSession(state.notetaker);
-    state.session = blank;
-    await saveSession(toOatsFileFrom(blank));
-    state.sessions = [metaOf(blank)];
+  if (summaries.length === 0) {
+    const blank = blankMeeting(state.notetaker);
+    state.meeting = blank;
+    await saveMeeting(toOatsFileFrom(blank));
+    state.meetings = [summaryOf(blank)];
     return;
   }
 
-  const { loadSession: loadFromDisk } = await import("./sessions");
-  const newest = metas[0];
-  const loaded = await loadFromDisk(newest.sessionId);
-  state.session = loaded ? fileToSession(loaded) : blankSession(state.notetaker);
-  if (state.session && !state.notetaker && state.session.notetaker) {
-    state.notetaker = state.session.notetaker;
+  const { loadMeeting: loadFromDisk } = await import("./meetings");
+  const newest = summaries[0];
+  const loaded = await loadFromDisk(newest.meetingId);
+  state.meeting = loaded ? fileToMeeting(loaded) : blankMeeting(state.notetaker);
+  if (state.meeting && !state.notetaker && state.meeting.notetaker) {
+    state.notetaker = state.meeting.notetaker;
   }
-  state.sessions = metas;
+  state.meetings = summaries;
 }
 
-function fileToSession(file: OatsFile): Session {
+function fileToMeeting(file: OatsFile): Meeting {
   return {
     version: 1,
-    sessionId: file.sessionId,
+    meetingId: file.meetingId,
     notetaker: file.notetaker,
     title: file.title,
     createdAt: file.createdAt,
@@ -152,18 +152,18 @@ function fileToSession(file: OatsFile): Session {
   };
 }
 
-function metaOf(s: Session): SessionMeta {
-  return { sessionId: s.sessionId, title: s.title, createdAt: s.createdAt };
+function summaryOf(m: Meeting): MeetingSummary {
+  return { meetingId: m.meetingId, title: m.title, createdAt: m.createdAt };
 }
 
-function refreshCurrentMeta(): void {
-  if (!state.session) return;
-  const meta = metaOf(state.session);
-  const idx = state.sessions.findIndex((m) => m.sessionId === meta.sessionId);
+function refreshCurrentSummary(): void {
+  if (!state.meeting) return;
+  const summary = summaryOf(state.meeting);
+  const idx = state.meetings.findIndex((m) => m.meetingId === summary.meetingId);
   if (idx === -1) {
-    state.sessions = [meta, ...state.sessions];
+    state.meetings = [summary, ...state.meetings];
   } else {
-    state.sessions[idx] = meta;
+    state.meetings[idx] = summary;
   }
 }
 
@@ -172,93 +172,93 @@ export function setNotetaker(name: string): void {
   if (typeof localStorage !== "undefined") {
     localStorage.setItem(LS_NOTETAKER, name);
   }
-  if (state.session) {
-    state.session.notetaker = name;
+  if (state.meeting) {
+    state.meeting.notetaker = name;
     persist();
   }
 }
 
 export function setTitle(title: string): void {
-  if (!state.session) return;
-  state.session.title = title;
-  if (isNative) refreshCurrentMeta();
+  if (!state.meeting) return;
+  state.meeting.title = title;
+  if (isNative) refreshCurrentSummary();
   persist();
 }
 
 export function appendEvents(events: OatsEvent[]): void {
-  if (!state.session) return;
+  if (!state.meeting) return;
   if (events.length === 0) return;
-  state.session.events.push(...events);
+  state.meeting.events.push(...events);
   persist();
 }
 
 export function setSnapshot(snapshot: QuillDelta, paragraphIds: string[]): void {
-  if (!state.session) return;
-  state.session.snapshot = snapshot;
-  state.session.paragraphIds = paragraphIds;
+  if (!state.meeting) return;
+  state.meeting.snapshot = snapshot;
+  state.meeting.paragraphIds = paragraphIds;
   persist();
 }
 
-export function startNewSession(): void {
+export function startNewMeeting(): void {
   clearInputMarkers();
-  state.session = blankSession(state.notetaker);
+  state.meeting = blankMeeting(state.notetaker);
   if (isNative) {
     // Add to sidebar immediately; the debounced persist will land shortly.
-    state.sessions = [metaOf(state.session), ...state.sessions];
+    state.meetings = [summaryOf(state.meeting), ...state.meetings];
   }
   persist();
 }
 
-export async function switchSession(id: string): Promise<void> {
+export async function switchMeeting(id: string): Promise<void> {
   if (!isNative) return;
-  if (state.session?.sessionId === id) return;
+  if (state.meeting?.meetingId === id) return;
   await flushPersist();
-  const { loadSession } = await import("./sessions");
-  const file = await loadSession(id);
+  const { loadMeeting } = await import("./meetings");
+  const file = await loadMeeting(id);
   if (!file) return;
   clearInputMarkers();
-  state.session = fileToSession(file);
+  state.meeting = fileToMeeting(file);
 }
 
-export async function deleteSessionById(id: string): Promise<void> {
+export async function deleteMeetingById(id: string): Promise<void> {
   if (!isNative) return;
-  const wasCurrent = state.session?.sessionId === id;
-  const remaining = state.sessions.filter((m) => m.sessionId !== id);
-  state.sessions = remaining;
+  const wasCurrent = state.meeting?.meetingId === id;
+  const remaining = state.meetings.filter((m) => m.meetingId !== id);
+  state.meetings = remaining;
 
   if (wasCurrent) {
     clearInputMarkers();
     if (remaining.length > 0) {
       // Hand the user the next-most-recent meeting rather than a phantom
-      // blank. `state.sessions` is kept newest-first, so [0] is correct.
-      const { loadSession } = await import("./sessions");
-      const file = await loadSession(remaining[0].sessionId);
-      state.session = file
-        ? fileToSession(file)
-        : blankSession(state.notetaker);
+      // blank. `state.meetings` is kept newest-first, so [0] is correct.
+      const { loadMeeting } = await import("./meetings");
+      const file = await loadMeeting(remaining[0].meetingId);
+      state.meeting = file
+        ? fileToMeeting(file)
+        : blankMeeting(state.notetaker);
     } else {
       // No meetings left — start a fresh blank so the UI is never empty.
-      state.session = blankSession(state.notetaker);
+      state.meeting = blankMeeting(state.notetaker);
     }
   }
 
   await flushPersist();
-  const { deleteSession, saveSession } = await import("./sessions");
-  await deleteSession(id);
-  // Only persist + register the current session when we created a new blank
+  const { deleteMeeting, saveMeeting } = await import("./meetings");
+  await deleteMeeting(id);
+  // Only persist + register the current meeting when we created a new blank
   // (i.e. there were no remaining meetings to fall back to). Switching to an
   // existing meeting needs neither — its file is already on disk and its
   // sidebar entry is already in `remaining`.
-  if (wasCurrent && remaining.length === 0 && state.session) {
-    await saveSession(toOatsFileFrom(state.session));
-    refreshCurrentMeta();
+  if (wasCurrent && remaining.length === 0 && state.meeting) {
+    await saveMeeting(toOatsFileFrom(state.meeting));
+    refreshCurrentSummary();
   }
 }
 
-export function replaceSessionFromFile(file: OatsFile): void {
+export function replaceMeetingFromFile(file: OatsFile): void {
   clearInputMarkers();
   const loadedAt = new Date().toISOString();
-  state.session = {
+  state.meeting = {
     ...file,
     events: [
       ...file.events,
@@ -270,8 +270,8 @@ export function replaceSessionFromFile(file: OatsFile): void {
       },
     ],
   };
-  if (state.notetaker && state.session.notetaker !== state.notetaker) {
-    state.session.notetaker = state.notetaker;
+  if (state.notetaker && state.meeting.notetaker !== state.notetaker) {
+    state.meeting.notetaker = state.notetaker;
   } else if (!state.notetaker && file.notetaker) {
     state.notetaker = file.notetaker;
     if (typeof localStorage !== "undefined") {
@@ -282,9 +282,9 @@ export function replaceSessionFromFile(file: OatsFile): void {
 }
 
 export function hasUnsavedWork(): boolean {
-  if (!state.session) return false;
-  return state.session.events.some(
-    (e) => e.type !== "session_started" && e.type !== "file_loaded",
+  if (!state.meeting) return false;
+  return state.meeting.events.some(
+    (e) => e.type !== "meeting_started" && e.type !== "file_loaded",
   );
 }
 
@@ -293,14 +293,14 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 400;
 
 function persist(): void {
-  if (!state.session) return;
+  if (!state.meeting) return;
   if (isNative) {
     scheduleNativePersist();
     return;
   }
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(state.session));
+    localStorage.setItem(LS_KEY, JSON.stringify(state.meeting));
     state.persistError = null;
     persistWarned = false;
   } catch (err) {
@@ -310,7 +310,7 @@ function persist(): void {
         err.name === "NS_ERROR_DOM_QUOTA_REACHED");
     state.persistError = isQuota ? "quota" : "other";
     if (!persistWarned) {
-      console.warn("oatpad: autosave to localStorage failed", err);
+      console.warn("Oatpad: autosave to localStorage failed", err);
       persistWarned = true;
     }
   }
@@ -320,20 +320,20 @@ function scheduleNativePersist(): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    void writeCurrentSessionToDisk();
+    void writeCurrentMeetingToDisk();
   }, SAVE_DEBOUNCE_MS);
 }
 
-async function writeCurrentSessionToDisk(): Promise<void> {
-  if (!state.session) return;
+async function writeCurrentMeetingToDisk(): Promise<void> {
+  if (!state.meeting) return;
   try {
-    const { saveSession } = await import("./sessions");
-    await saveSession(toOatsFileFrom(state.session));
+    const { saveMeeting } = await import("./meetings");
+    await saveMeeting(toOatsFileFrom(state.meeting));
     state.persistError = null;
   } catch (err) {
     state.persistError = "other";
     if (!persistWarned) {
-      console.warn("oatpad: autosave to disk failed", err);
+      console.warn("Oatpad: autosave to disk failed", err);
       persistWarned = true;
     }
   }
@@ -345,23 +345,23 @@ export async function flushPersist(): Promise<void> {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  await writeCurrentSessionToDisk();
+  await writeCurrentMeetingToDisk();
 }
 
-function toOatsFileFrom(s: Session): OatsFile {
+function toOatsFileFrom(m: Meeting): OatsFile {
   const {
     version,
-    sessionId,
+    meetingId,
     notetaker,
     title,
     createdAt,
     events,
     snapshot,
     paragraphIds,
-  } = s;
+  } = m;
   return {
     version,
-    sessionId,
+    meetingId,
     notetaker,
     title,
     createdAt,
@@ -372,8 +372,8 @@ function toOatsFileFrom(s: Session): OatsFile {
 }
 
 export function toOatsFile(): OatsFile | null {
-  if (!state.session) return null;
-  return toOatsFileFrom(state.session);
+  if (!state.meeting) return null;
+  return toOatsFileFrom(state.meeting);
 }
 
 // Flush any pending autosave before the window closes.

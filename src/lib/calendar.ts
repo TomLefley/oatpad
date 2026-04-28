@@ -28,7 +28,7 @@ export type CalendarCell = {
 // stays stable across months with different first-weekday offsets.
 export function buildCalendarCells(
   viewMonth: Date,
-  sessionDates: Set<string>,
+  meetingDates: Set<string>,
   today: Date,
 ): (CalendarCell | null)[] {
   const year = viewMonth.getFullYear();
@@ -45,7 +45,7 @@ export function buildCalendarCells(
     cells.push({
       day: d,
       ymd,
-      hasMeeting: sessionDates.has(ymd),
+      hasMeeting: meetingDates.has(ymd),
       isToday: ymd === todayYmd,
     });
   }
@@ -57,7 +57,7 @@ export function fmtMonth(d: Date): string {
   return d.toLocaleString("en-GB", { month: "long", year: "numeric" });
 }
 
-// For sessions started today show the time; for older sessions show the
+// For meetings started today show the time; for older meetings show the
 // date. Keeps the sidebar's timestamp column narrow whatever the row's age.
 // `now` is injectable so callers can pin behaviour in tests.
 export function fmtTimestamp(iso: string, now: Date = new Date()): string {

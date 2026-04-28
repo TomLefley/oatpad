@@ -1,25 +1,25 @@
-# oatpad MCP server
+# Oatpad MCP server
 
-A read-only MCP server that exposes [oatpad](../README.md) meeting-note sessions
+A read-only MCP server that exposes [Oatpad](../README.md) meeting notes
 to Claude (or any MCP-compatible client) over stdio.
 
 ## Tools
 
 | Tool | What it does |
 | --- | --- |
-| `list_sessions` | All sessions, newest first. Returns `sessionId`, `title`, `displayName` (falls back to `meeting`), `createdAt`, `notetaker`. |
-| `get_session(sessionId)` | One session by id. Returns the full `OatsFile` JSON — events log, editor snapshot, paragraph IDs, metadata. |
-| `get_sessions_in_range(start, end)` | Every session whose `createdAt` falls in `[start, end]` (ISO 8601 datetimes, inclusive). Returns full `OatsFile`s, newest first. |
+| `list_meetings` | All meetings, newest first. Returns `meetingId`, `title`, `displayName` (falls back to `meeting`), `createdAt`, `notetaker`. |
+| `get_meeting(meetingId)` | One meeting by id. Returns the full `OatsFile` JSON — events log, editor snapshot, paragraph IDs, metadata. |
+| `get_meetings_in_range(start, end)` | Every meeting whose `createdAt` falls in `[start, end]` (ISO 8601 datetimes, inclusive). Returns full `OatsFile`s, newest first. |
 
 ## Where the data lives
 
-The server reads `.oats` files from oatpad's application-data directory:
+The server reads `.oats` files from Oatpad's application-data directory:
 
-- macOS: `~/Library/Application Support/com.tomlefley.oatpad/sessions/`
-- Linux: `$XDG_DATA_HOME/com.tomlefley.oatpad/sessions/` (default `~/.local/share/...`)
-- Windows: `%APPDATA%/com.tomlefley.oatpad/sessions/`
+- macOS: `~/Library/Application Support/com.tomlefley.oatpad/meetings/`
+- Linux: `$XDG_DATA_HOME/com.tomlefley.oatpad/meetings/` (default `~/.local/share/...`)
+- Windows: `%APPDATA%/com.tomlefley.oatpad/meetings/`
 
-It only reads — it never writes back, so it can't corrupt anything oatpad has
+It only reads — it never writes back, so it can't corrupt anything Oatpad has
 saved.
 
 ## Build

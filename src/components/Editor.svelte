@@ -55,10 +55,10 @@
   export function reload(): void {
     if (!quill) return;
     suppressCommit = true;
-    const session = store.state.session;
-    if (session) {
-      quill.setContents(session.snapshot as unknown as never);
-      applyParagraphIds(quill.root, session.paragraphIds);
+    const meeting = store.state.meeting;
+    if (meeting) {
+      quill.setContents(meeting.snapshot as unknown as never);
+      applyParagraphIds(quill.root, meeting.paragraphIds);
     } else {
       quill.setContents({ ops: [{ insert: "\n" }] } as unknown as never);
     }

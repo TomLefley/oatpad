@@ -86,7 +86,7 @@
       }
       return;
     }
-    store.replaceSessionFromFile(result.file);
+    store.replaceMeetingFromFile(result.file);
     editor?.reload();
   }
 
@@ -97,22 +97,22 @@
       const ok = confirm("Start a new meeting? Unsaved notes will be lost.");
       if (!ok) return;
     }
-    store.startNewSession();
+    store.startNewMeeting();
     editor?.reload();
   }
 
   async function handleSwitch(id: string): Promise<void> {
     editor?.flush();
-    await store.switchSession(id);
+    await store.switchMeeting(id);
     editor?.reload();
   }
 
   async function handleDelete(id: string): Promise<void> {
     editor?.flush();
-    await store.deleteSessionById(id);
-    // If the deleted session was the current one, the store has installed a
-    // fresh blank session — reload so Quill drops the old contents and picks
-    // up the empty snapshot. (For non-current deletes the editor's session
+    await store.deleteMeetingById(id);
+    // If the deleted meeting was the current one, the store has installed a
+    // fresh blank meeting — reload so Quill drops the old contents and picks
+    // up the empty snapshot. (For non-current deletes the editor's meeting
     // didn't change, but reload() is a cheap no-op replay of the current
     // snapshot.)
     editor?.reload();

@@ -1,5 +1,5 @@
-export type SessionStartedEvent = {
-  type: "session_started";
+export type MeetingStartedEvent = {
+  type: "meeting_started";
   id: string;
   ts: string;
   notetaker: string;
@@ -36,7 +36,7 @@ export type FileLoadedEvent = {
 };
 
 export type OatsEvent =
-  | SessionStartedEvent
+  | MeetingStartedEvent
   | NoteCreatedEvent
   | NoteEditedEvent
   | NoteDeletedEvent
@@ -55,7 +55,7 @@ export type QuillDelta = {
 
 export type OatsFile = {
   version: 1;
-  sessionId: string;
+  meetingId: string;
   notetaker: string;
   title: string;
   createdAt: string;

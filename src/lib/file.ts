@@ -20,7 +20,7 @@ type FSAWindow = Window & {
 
 const oatsFileTypes = [
   {
-    description: "oatpad notes file",
+    description: "Oatpad notes file",
     accept: { "application/json": [".oats"] },
   },
 ];
@@ -34,7 +34,7 @@ export async function saveFile(file: OatsFile): Promise<boolean> {
     const { writeTextFile } = await import("@tauri-apps/plugin-fs");
     const path = await save({
       defaultPath: suggestedName,
-      filters: [{ name: "oatpad notes", extensions: ["oats"] }],
+      filters: [{ name: "Oatpad notes", extensions: ["oats"] }],
     });
     if (!path) return false;
     await writeTextFile(path, json);
@@ -85,7 +85,7 @@ export async function loadFile(): Promise<LoadResult> {
     try {
       const path = await open({
         multiple: false,
-        filters: [{ name: "oatpad notes", extensions: ["oats"] }],
+        filters: [{ name: "Oatpad notes", extensions: ["oats"] }],
       });
       if (!path) return { ok: false, reason: "cancelled" };
       text = await readTextFile(path);
@@ -162,11 +162,11 @@ export function parseOatsFile(text: string): OatsFile {
   if (!isObject(parsed)) throw new Error("File content is not an object.");
   if (parsed.version !== 1) {
     throw new Error(
-      `Unsupported oatpad file version: ${String(parsed.version)}`,
+      `Unsupported Oatpad file version: ${String(parsed.version)}`,
     );
   }
 
-  requireString(parsed, "sessionId");
+  requireString(parsed, "meetingId");
   requireString(parsed, "notetaker");
   requireString(parsed, "title");
   requireString(parsed, "createdAt");
@@ -203,7 +203,7 @@ export function parseOatsFile(text: string): OatsFile {
 
   return {
     version: 1,
-    sessionId: parsed.sessionId as string,
+    meetingId: parsed.meetingId as string,
     notetaker: parsed.notetaker as string,
     title: parsed.title as string,
     createdAt: parsed.createdAt as string,
@@ -214,7 +214,7 @@ export function parseOatsFile(text: string): OatsFile {
 }
 
 const EVENT_TYPES = new Set([
-  "session_started",
+  "meeting_started",
   "note_created",
   "note_edited",
   "note_deleted",
@@ -230,7 +230,7 @@ function validateEvent(raw: unknown): OatsEvent {
   if (typeof raw.ts !== "string") throw new Error("missing ts");
 
   switch (raw.type) {
-    case "session_started":
+    case "meeting_started":
       if (typeof raw.notetaker !== "string") throw new Error("missing notetaker");
       return raw as unknown as OatsEvent;
     case "note_created":

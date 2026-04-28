@@ -2,11 +2,11 @@
   import * as store from "../lib/store.svelte";
   import { editBounds, phaseFor, type Phase } from "../lib/meetingPhase";
 
-  const createdAt = $derived(store.state.session?.createdAt);
+  const createdAt = $derived(store.state.meeting?.createdAt);
 
   const bounds = $derived(
     editBounds(
-      store.state.session?.events ?? [],
+      store.state.meeting?.events ?? [],
       store.state.firstInputAt,
       store.state.lastInputAt,
     ),

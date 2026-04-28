@@ -1,5 +1,5 @@
 /*
- * oatpad ships in two forms:
+ * Oatpad ships in two forms:
  *   - `isNative`: the Tauri-wrapped macOS .app (`just build-app`)
  *   - `isWeb`:    a plain browser page served by `npm run dev`
  *

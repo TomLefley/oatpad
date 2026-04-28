@@ -3,13 +3,13 @@ import { parseOatsFile } from "./file";
 
 const valid = {
   version: 1,
-  sessionId: "s1",
+  meetingId: "m1",
   notetaker: "Tom",
   title: "meeting - x",
   createdAt: "2026-04-23T10:00:00.000Z",
   events: [
     {
-      type: "session_started",
+      type: "meeting_started",
       id: "e1",
       ts: "2026-04-23T10:00:00.000Z",
       notetaker: "Tom",
@@ -52,10 +52,10 @@ describe("parseOatsFile", () => {
     );
   });
 
-  it("rejects missing sessionId", () => {
+  it("rejects missing meetingId", () => {
     const raw = { ...valid } as Record<string, unknown>;
-    delete raw.sessionId;
-    expect(() => parseOatsFile(JSON.stringify(raw))).toThrow(/sessionId/);
+    delete raw.meetingId;
+    expect(() => parseOatsFile(JSON.stringify(raw))).toThrow(/meetingId/);
   });
 
   it("rejects non-array events", () => {

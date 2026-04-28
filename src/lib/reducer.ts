@@ -14,20 +14,20 @@ export type NoteState = {
   deleted: boolean;
 };
 
-export type SessionState = {
+export type MeetingState = {
   notetaker: string;
   notes: Map<string, NoteState>;
 };
 
-export function replay(events: OatsEvent[]): SessionState {
-  const state: SessionState = {
+export function replay(events: OatsEvent[]): MeetingState {
+  const state: MeetingState = {
     notetaker: "",
     notes: new Map(),
   };
 
   for (const event of events) {
     switch (event.type) {
-      case "session_started":
+      case "meeting_started":
         state.notetaker = event.notetaker;
         break;
       case "note_created":

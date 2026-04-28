@@ -13,7 +13,7 @@ applyTheme(loadTheme());
 const target = document.getElementById("app");
 if (!target) throw new Error("#app not found");
 
-await store.initSession();
+await store.initMeeting();
 
 const app = mount(App, { target });
 

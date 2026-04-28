@@ -11,10 +11,10 @@ describe("editBounds", () => {
     expect(editBounds([], null, null)).toEqual({ first: null, last: null });
   });
 
-  it("ignores session_started and file_loaded", () => {
+  it("ignores meeting_started and file_loaded", () => {
     const out = editBounds(
       [
-        ev({ type: "session_started", id: "s", ts: "t1", notetaker: "Tom" }),
+        ev({ type: "meeting_started", id: "s", ts: "t1", notetaker: "Tom" }),
         ev({ type: "file_loaded", id: "f", ts: "t9", sourceTitle: "old" }),
       ],
       null,
@@ -64,7 +64,7 @@ describe("editBounds", () => {
 
   it("uses live markers alone when there are no committed edit events", () => {
     const out = editBounds(
-      [ev({ type: "session_started", id: "s", ts: "2026-04-27T09:00:00Z", notetaker: "Tom" })],
+      [ev({ type: "meeting_started", id: "s", ts: "2026-04-27T09:00:00Z", notetaker: "Tom" })],
       "2026-04-27T10:00:00Z",
       "2026-04-27T10:00:30Z",
     );

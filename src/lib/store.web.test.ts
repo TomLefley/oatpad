@@ -50,29 +50,29 @@ async function loadStore(): Promise<typeof import("./store.svelte")> {
   return await import("./store.svelte");
 }
 
-describe("initSession (web)", () => {
-  it("creates a fresh blank session and persists it when nothing is in localStorage", async () => {
+describe("initMeeting (web)", () => {
+  it("creates a fresh blank meeting and persists it when nothing is in localStorage", async () => {
     const store = await loadStore();
-    await store.initSession();
-    expect(store.state.session).not.toBeNull();
-    expect(store.state.session?.events[0]?.type).toBe("session_started");
-    // The blank session was persisted to localStorage under oatpad.session.
-    const raw = store_localStorage.getItem("oatpad.session");
+    await store.initMeeting();
+    expect(store.state.meeting).not.toBeNull();
+    expect(store.state.meeting?.events[0]?.type).toBe("meeting_started");
+    // The blank meeting was persisted to localStorage under oatpad.meeting.
+    const raw = store_localStorage.getItem("oatpad.meeting");
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!);
-    expect(parsed.sessionId).toBe(store.state.session?.sessionId);
+    expect(parsed.meetingId).toBe(store.state.meeting?.meetingId);
   });
 
-  it("restores an existing session from localStorage and pulls its notetaker forward", async () => {
+  it("restores an existing meeting from localStorage and pulls its notetaker forward", async () => {
     const stored = {
       version: 1,
-      sessionId: "saved-1",
+      meetingId: "saved-1",
       notetaker: "Restored",
       title: "Old meeting",
       createdAt: "2026-04-27T10:00:00.000Z",
       events: [
         {
-          type: "session_started",
+          type: "meeting_started",
           id: "e1",
           ts: "2026-04-27T10:00:00.000Z",
           notetaker: "Restored",
@@ -81,18 +81,18 @@ describe("initSession (web)", () => {
       snapshot: { ops: [{ insert: "\n" }] },
       paragraphIds: [],
     };
-    store_localStorage.setItem("oatpad.session", JSON.stringify(stored));
+    store_localStorage.setItem("oatpad.meeting", JSON.stringify(stored));
 
     const store = await loadStore();
-    await store.initSession();
-    expect(store.state.session?.sessionId).toBe("saved-1");
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).toBe("saved-1");
     expect(store.state.notetaker).toBe("Restored");
   });
 
-  it("ignores a session payload with an unsupported version", async () => {
+  it("ignores a meeting payload with an unsupported version", async () => {
     const stored = {
       version: 999,
-      sessionId: "future",
+      meetingId: "future",
       notetaker: "x",
       title: "",
       createdAt: "2026-04-27T10:00:00.000Z",
@@ -100,51 +100,51 @@ describe("initSession (web)", () => {
       snapshot: { ops: [{ insert: "\n" }] },
       paragraphIds: [],
     };
-    store_localStorage.setItem("oatpad.session", JSON.stringify(stored));
+    store_localStorage.setItem("oatpad.meeting", JSON.stringify(stored));
 
     const store = await loadStore();
-    await store.initSession();
-    expect(store.state.session?.sessionId).not.toBe("future");
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).not.toBe("future");
   });
 
   it("ignores malformed JSON in localStorage and starts fresh", async () => {
-    store_localStorage.setItem("oatpad.session", "{not valid json");
+    store_localStorage.setItem("oatpad.meeting", "{not valid json");
     const store = await loadStore();
-    await store.initSession();
-    expect(store.state.session).not.toBeNull();
+    await store.initMeeting();
+    expect(store.state.meeting).not.toBeNull();
   });
 });
 
 describe("setNotetaker / setTitle (web)", () => {
-  it("setNotetaker writes to localStorage and updates the current session", async () => {
+  it("setNotetaker writes to localStorage and updates the current meeting", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store.setNotetaker("Alice");
     expect(store_localStorage.getItem("oatpad.notetaker")).toBe("Alice");
-    expect(store.state.session?.notetaker).toBe("Alice");
+    expect(store.state.meeting?.notetaker).toBe("Alice");
   });
 
   it("setTitle persists the new title back to localStorage", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store.setTitle("Roadmap review");
     const parsed = JSON.parse(
-      store_localStorage.getItem("oatpad.session")!,
+      store_localStorage.getItem("oatpad.meeting")!,
     );
     expect(parsed.title).toBe("Roadmap review");
   });
 });
 
 describe("hasUnsavedWork", () => {
-  it("returns false for a brand-new session that only has session_started", async () => {
+  it("returns false for a brand-new meeting that only has meeting_started", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     expect(store.hasUnsavedWork()).toBe(false);
   });
 
-  it("returns false when the only events are bookkeeping (session_started + file_loaded)", async () => {
+  it("returns false when the only events are bookkeeping (meeting_started + file_loaded)", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store.appendEvents([
       {
         type: "file_loaded",
@@ -158,7 +158,7 @@ describe("hasUnsavedWork", () => {
 
   it("returns true once a real edit event lands", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store.appendEvents([
       {
         type: "note_created",
@@ -175,7 +175,7 @@ describe("hasUnsavedWork", () => {
 describe("noteInput markers", () => {
   it("sets firstInputAt on the first call and bumps lastInputAt on subsequent calls", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     expect(store.state.firstInputAt).toBeNull();
     store.noteInput();
     const first = store.state.firstInputAt;
@@ -190,19 +190,19 @@ describe("noteInput markers", () => {
   });
 });
 
-describe("replaceSessionFromFile", () => {
-  it("appends a file_loaded event and adopts the loaded session", async () => {
+describe("replaceMeetingFromFile", () => {
+  it("appends a file_loaded event and adopts the loaded meeting", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     const file: OatsFile = {
       version: 1,
-      sessionId: "loaded-1",
+      meetingId: "loaded-1",
       notetaker: "FromDisk",
       title: "Imported",
       createdAt: "2026-04-26T15:00:00.000Z",
       events: [
         {
-          type: "session_started",
+          type: "meeting_started",
           id: "e1",
           ts: "2026-04-26T15:00:00.000Z",
           notetaker: "FromDisk",
@@ -218,10 +218,10 @@ describe("replaceSessionFromFile", () => {
       snapshot: { ops: [{ insert: "imported note\n" }] },
       paragraphIds: ["n1"],
     };
-    store.replaceSessionFromFile(file);
+    store.replaceMeetingFromFile(file);
 
-    expect(store.state.session?.sessionId).toBe("loaded-1");
-    const last = store.state.session!.events.at(-1);
+    expect(store.state.meeting?.meetingId).toBe("loaded-1");
+    const last = store.state.meeting!.events.at(-1);
     expect(last?.type).toBe("file_loaded");
     if (last?.type === "file_loaded") {
       expect(last.sourceTitle).toBe("Imported");
@@ -232,12 +232,12 @@ describe("replaceSessionFromFile", () => {
 
   it("preserves the user's existing notetaker over the file's", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store.setNotetaker("CurrentUser");
 
-    store.replaceSessionFromFile({
+    store.replaceMeetingFromFile({
       version: 1,
-      sessionId: "loaded-2",
+      meetingId: "loaded-2",
       notetaker: "FileAuthor",
       title: "x",
       createdAt: "2026-04-26T15:00:00.000Z",
@@ -246,20 +246,20 @@ describe("replaceSessionFromFile", () => {
       paragraphIds: [],
     });
     expect(store.state.notetaker).toBe("CurrentUser");
-    expect(store.state.session?.notetaker).toBe("CurrentUser");
+    expect(store.state.meeting?.notetaker).toBe("CurrentUser");
   });
 });
 
-describe("startNewSession", () => {
-  it("swaps in a brand-new blank session and clears live input markers", async () => {
+describe("startNewMeeting", () => {
+  it("swaps in a brand-new blank meeting and clears live input markers", async () => {
     const store = await loadStore();
-    await store.initSession();
-    const original = store.state.session?.sessionId;
+    await store.initMeeting();
+    const original = store.state.meeting?.meetingId;
     store.noteInput();
     expect(store.state.firstInputAt).not.toBeNull();
 
-    store.startNewSession();
-    expect(store.state.session?.sessionId).not.toBe(original);
+    store.startNewMeeting();
+    expect(store.state.meeting?.meetingId).not.toBe(original);
     expect(store.state.firstInputAt).toBeNull();
     expect(store.state.lastInputAt).toBeNull();
   });
@@ -268,7 +268,7 @@ describe("startNewSession", () => {
 describe("persist quota handling", () => {
   it("flips persistError to 'quota' when localStorage throws QuotaExceededError", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     expect(store.state.persistError).toBeNull();
 
     // Make subsequent setItem calls throw a quota-shaped DOMException.
@@ -296,7 +296,7 @@ describe("persist quota handling", () => {
 
   it("flips persistError to 'other' for a non-quota error", async () => {
     const store = await loadStore();
-    await store.initSession();
+    await store.initMeeting();
     store_localStorage.setItem = (() => {
       throw new Error("disk on fire");
     }) as typeof store_localStorage.setItem;
