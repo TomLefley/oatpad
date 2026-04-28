@@ -51,16 +51,13 @@ async function loadStore(): Promise<typeof import("./store.svelte")> {
 }
 
 describe("initMeeting (web)", () => {
-  it("creates a fresh blank meeting and persists it when nothing is in localStorage", async () => {
+  it("leaves state.meeting null when nothing is in localStorage", async () => {
     const store = await loadStore();
     await store.initMeeting();
-    expect(store.state.meeting).not.toBeNull();
-    expect(store.state.meeting?.events[0]?.type).toBe("meeting_started");
-    // The blank meeting was persisted to localStorage under oatpad.meeting.
-    const raw = store_localStorage.getItem("oatpad.meeting");
-    expect(raw).not.toBeNull();
-    const parsed = JSON.parse(raw!);
-    expect(parsed.meetingId).toBe(store.state.meeting?.meetingId);
+    // No saved meeting and no phantom blank — the Getting Started view
+    // takes over until the user creates one.
+    expect(store.state.meeting).toBeNull();
+    expect(store_localStorage.getItem("oatpad.meeting")).toBeNull();
   });
 
   it("restores an existing meeting from localStorage and pulls its notetaker forward", async () => {
@@ -104,14 +101,16 @@ describe("initMeeting (web)", () => {
 
     const store = await loadStore();
     await store.initMeeting();
-    expect(store.state.meeting?.meetingId).not.toBe("future");
+    // Future-versioned payload is rejected — falls through to the no-meeting
+    // path rather than being silently adopted.
+    expect(store.state.meeting).toBeNull();
   });
 
-  it("ignores malformed JSON in localStorage and starts fresh", async () => {
+  it("ignores malformed JSON in localStorage and ends up with no meeting", async () => {
     store_localStorage.setItem("oatpad.meeting", "{not valid json");
     const store = await loadStore();
     await store.initMeeting();
-    expect(store.state.meeting).not.toBeNull();
+    expect(store.state.meeting).toBeNull();
   });
 });
 
@@ -119,6 +118,7 @@ describe("setNotetaker / setTitle (web)", () => {
   it("setNotetaker writes to localStorage and updates the current meeting", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     store.setNotetaker("Alice");
     expect(store_localStorage.getItem("oatpad.notetaker")).toBe("Alice");
     expect(store.state.meeting?.notetaker).toBe("Alice");
@@ -127,6 +127,7 @@ describe("setNotetaker / setTitle (web)", () => {
   it("setTitle persists the new title back to localStorage", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     store.setTitle("Roadmap review");
     const parsed = JSON.parse(
       store_localStorage.getItem("oatpad.meeting")!,
@@ -136,15 +137,24 @@ describe("setNotetaker / setTitle (web)", () => {
 });
 
 describe("hasUnsavedWork", () => {
+  it("returns false when there's no current meeting", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    expect(store.hasUnsavedWork()).toBe(false);
+  });
+
   it("returns false for a brand-new meeting that only has meeting_started", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     expect(store.hasUnsavedWork()).toBe(false);
   });
 
   it("returns false when the only events are bookkeeping (meeting_started + file_loaded)", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     store.appendEvents([
       {
         type: "file_loaded",
@@ -159,6 +169,7 @@ describe("hasUnsavedWork", () => {
   it("returns true once a real edit event lands", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     store.appendEvents([
       {
         type: "note_updated",
@@ -260,7 +271,10 @@ describe("startNewMeeting", () => {
   it("swaps in a brand-new blank meeting and clears live input markers", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    // Seed with a first meeting so we can observe that startNewMeeting swaps it.
+    store.startNewMeeting();
     const original = store.state.meeting?.meetingId;
+    expect(original).toBeDefined();
     store.noteInput();
     expect(store.state.firstInputAt).not.toBeNull();
 
@@ -269,12 +283,24 @@ describe("startNewMeeting", () => {
     expect(store.state.firstInputAt).toBeNull();
     expect(store.state.lastInputAt).toBeNull();
   });
+
+  it("creates a meeting from the null state", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    store.startNewMeeting();
+    expect(store.state.meeting).not.toBeNull();
+    expect(store.state.meeting?.events[0]?.type).toBe("meeting_started");
+    // The new meeting is persisted to localStorage.
+    expect(store_localStorage.getItem("oatpad.meeting")).not.toBeNull();
+  });
 });
 
 describe("persist quota handling", () => {
   it("flips persistError to 'quota' when localStorage throws QuotaExceededError", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     expect(store.state.persistError).toBeNull();
 
     // Make subsequent setItem calls throw a quota-shaped DOMException.
@@ -303,6 +329,7 @@ describe("persist quota handling", () => {
   it("flips persistError to 'other' for a non-quota error", async () => {
     const store = await loadStore();
     await store.initMeeting();
+    store.startNewMeeting();
     store_localStorage.setItem = (() => {
       throw new Error("disk on fire");
     }) as typeof store_localStorage.setItem;

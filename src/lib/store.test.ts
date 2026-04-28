@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { OatsFile } from "./types";
 
-// In native mode, deleteMeetingById walks the sidebar list, replaces the
-// current meeting with a blank one, removes the deleted file from disk and
-// re-saves the new blank. The test mocks the platform flag and the on-disk
+// In native mode, deleteMeetingById walks the sidebar list, swaps in the
+// next-most-recent meeting (or null when none remain), and removes the
+// deleted file from disk. The test mocks the platform flag and the on-disk
 // meetings module so we can exercise the full code path in node.
 
 vi.mock("./platform", () => ({
@@ -89,7 +89,7 @@ describe("deleteMeetingById (native)", () => {
     expect(meetingFiles.size).toBe(1);
   });
 
-  it("creates a fresh blank meeting when the only meeting is deleted", async () => {
+  it("leaves state.meeting null when the only meeting is deleted", async () => {
     const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
     meetingFiles.set(a.meetingId, a);
 
@@ -99,13 +99,12 @@ describe("deleteMeetingById (native)", () => {
 
     await store.deleteMeetingById("aaa");
 
-    // Old file gone, new blank created and persisted.
+    // Old file gone, no phantom blank created — the Getting Started view
+    // takes over once state.meeting is null.
     expect(meetingFiles.has("aaa")).toBe(false);
-    const currentId = store.state.meeting?.meetingId;
-    expect(currentId).toBeDefined();
-    expect(currentId).not.toBe("aaa");
-    expect(meetingFiles.has(currentId!)).toBe(true);
-    expect(store.state.meetings.some((m) => m.meetingId === currentId)).toBe(true);
+    expect(meetingFiles.size).toBe(0);
+    expect(store.state.meeting).toBeNull();
+    expect(store.state.meetings.length).toBe(0);
   });
 
   it("deleting a non-current meeting leaves the current meeting untouched", async () => {
@@ -140,5 +139,20 @@ describe("deleteMeetingById (native)", () => {
 
     expect(store.state.firstInputAt).toBeNull();
     expect(store.state.lastInputAt).toBeNull();
+  });
+});
+
+describe("initMeeting (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("leaves state.meeting null when no meetings exist on disk", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    expect(store.state.meetings).toEqual([]);
+    // No phantom blank persisted to disk.
+    expect(meetingFiles.size).toBe(0);
   });
 });

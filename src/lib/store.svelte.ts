@@ -1,6 +1,7 @@
 import type { OatsEvent, OatsFile, QuillDelta } from "./types";
 import { uuid } from "./ids";
 import { isNative } from "./platform";
+import { isFreshMode } from "./freshMode";
 import type { MeetingSummary } from "./meetings";
 
 const LS_KEY = "oatpad.meeting";
@@ -44,11 +45,13 @@ function blankMeeting(notetaker: string): Meeting {
 }
 
 function loadNotetaker(): string {
+  if (isFreshMode) return "";
   if (typeof localStorage === "undefined") return "";
   return localStorage.getItem(LS_NOTETAKER) ?? "";
 }
 
 function loadMeetingFromLocalStorage(): Meeting | null {
+  if (isFreshMode) return null;
   if (typeof localStorage === "undefined") return null;
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return null;
@@ -99,12 +102,13 @@ export async function initMeeting(): Promise<void> {
     }
     return;
   }
-  state.meeting = blankMeeting(state.notetaker);
-  persist();
+  // No saved meeting — leave state.meeting null and let the UI render the
+  // Getting Started view. Persisting only happens once the user creates one.
+  state.meeting = null;
 }
 
 async function initNativeMeeting(): Promise<void> {
-  const { listMeetings, saveMeeting } = await import("./meetings");
+  const { listMeetings } = await import("./meetings");
   let summaries = await listMeetings();
 
   if (summaries.length === 0) {
@@ -113,6 +117,7 @@ async function initNativeMeeting(): Promise<void> {
     // autosave build), migrate it to disk.
     const legacy = loadMeetingFromLocalStorage();
     if (legacy) {
+      const { saveMeeting } = await import("./meetings");
       await saveMeeting(toOatsFileFrom(legacy));
       summaries = await listMeetings();
       if (typeof localStorage !== "undefined") {
@@ -122,17 +127,18 @@ async function initNativeMeeting(): Promise<void> {
   }
 
   if (summaries.length === 0) {
-    const blank = blankMeeting(state.notetaker);
-    state.meeting = blank;
-    await saveMeeting(toOatsFileFrom(blank));
-    state.meetings = [summaryOf(blank)];
+    // No meetings on disk and no legacy payload to migrate — leave the state
+    // null so the Getting Started view renders. The first user-created meeting
+    // gets persisted via startNewMeeting.
+    state.meeting = null;
+    state.meetings = [];
     return;
   }
 
   const { loadMeeting: loadFromDisk } = await import("./meetings");
   const newest = summaries[0];
   const loaded = await loadFromDisk(newest.meetingId);
-  state.meeting = loaded ? fileToMeeting(loaded) : blankMeeting(state.notetaker);
+  state.meeting = loaded ? fileToMeeting(loaded) : null;
   if (state.meeting && !state.notetaker && state.meeting.notetaker) {
     state.notetaker = state.meeting.notetaker;
   }
@@ -169,7 +175,7 @@ function refreshCurrentSummary(): void {
 
 export function setNotetaker(name: string): void {
   state.notetaker = name;
-  if (typeof localStorage !== "undefined") {
+  if (!isFreshMode && typeof localStorage !== "undefined") {
     localStorage.setItem(LS_NOTETAKER, name);
   }
   if (state.meeting) {
@@ -229,30 +235,21 @@ export async function deleteMeetingById(id: string): Promise<void> {
   if (wasCurrent) {
     clearInputMarkers();
     if (remaining.length > 0) {
-      // Hand the user the next-most-recent meeting rather than a phantom
-      // blank. `state.meetings` is kept newest-first, so [0] is correct.
+      // Hand the user the next-most-recent meeting rather than nothing.
+      // `state.meetings` is kept newest-first, so [0] is correct.
       const { loadMeeting } = await import("./meetings");
       const file = await loadMeeting(remaining[0].meetingId);
-      state.meeting = file
-        ? fileToMeeting(file)
-        : blankMeeting(state.notetaker);
+      state.meeting = file ? fileToMeeting(file) : null;
     } else {
-      // No meetings left — start a fresh blank so the UI is never empty.
-      state.meeting = blankMeeting(state.notetaker);
+      // No meetings left — clear state.meeting and let the Getting Started
+      // view render. No phantom blank gets persisted.
+      state.meeting = null;
     }
   }
 
   await flushPersist();
-  const { deleteMeeting, saveMeeting } = await import("./meetings");
+  const { deleteMeeting } = await import("./meetings");
   await deleteMeeting(id);
-  // Only persist + register the current meeting when we created a new blank
-  // (i.e. there were no remaining meetings to fall back to). Switching to an
-  // existing meeting needs neither — its file is already on disk and its
-  // sidebar entry is already in `remaining`.
-  if (wasCurrent && remaining.length === 0 && state.meeting) {
-    await saveMeeting(toOatsFileFrom(state.meeting));
-    refreshCurrentSummary();
-  }
 }
 
 export function replaceMeetingFromFile(file: OatsFile): void {
@@ -274,7 +271,7 @@ export function replaceMeetingFromFile(file: OatsFile): void {
     state.meeting.notetaker = state.notetaker;
   } else if (!state.notetaker && file.notetaker) {
     state.notetaker = file.notetaker;
-    if (typeof localStorage !== "undefined") {
+    if (!isFreshMode && typeof localStorage !== "undefined") {
       localStorage.setItem(LS_NOTETAKER, file.notetaker);
     }
   }
@@ -298,6 +295,7 @@ function persist(): void {
     scheduleNativePersist();
     return;
   }
+  if (isFreshMode) return;
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(state.meeting));

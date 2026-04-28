@@ -9,6 +9,20 @@ import {
 } from "@tauri-apps/plugin-fs";
 import type { OatsFile } from "./types";
 import { parseOatsFile } from "./file";
+import { isFreshMode } from "./freshMode";
+
+// Fresh mode keeps meetings in memory only — writes don't hit disk and reads
+// come back from this map. The session behaves normally; nothing leaks across
+// a relaunch.
+const memCache = new Map<string, OatsFile>();
+
+// JSON round-trip rather than structuredClone — the input is typically a
+// Svelte $state proxy (state.meeting wrapped via toOatsFileFrom), and
+// structuredClone trips on proxy internals. JSON-cloning is what the on-disk
+// path already does, so the in-memory shape stays equivalent.
+function detach(file: OatsFile): OatsFile {
+  return JSON.parse(JSON.stringify(file)) as OatsFile;
+}
 
 /*
  * Native meeting persistence — one `.oats` file per meeting, living in
@@ -39,6 +53,15 @@ function meetingPath(id: string): string {
 }
 
 export async function listMeetings(): Promise<MeetingSummary[]> {
+  if (isFreshMode) {
+    return Array.from(memCache.values())
+      .map((f) => ({
+        meetingId: f.meetingId,
+        title: f.title,
+        createdAt: f.createdAt,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
   await ensureDir();
   const entries = await readDir(DIR, { baseDir: BASE_DIR });
   const summaries: MeetingSummary[] = [];
@@ -64,6 +87,10 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
 }
 
 export async function loadMeeting(id: string): Promise<OatsFile | null> {
+  if (isFreshMode) {
+    const cached = memCache.get(id);
+    return cached ? detach(cached) : null;
+  }
   try {
     const text = await readTextFile(meetingPath(id), { baseDir: BASE_DIR });
     return parseOatsFile(text);
@@ -73,12 +100,20 @@ export async function loadMeeting(id: string): Promise<OatsFile | null> {
 }
 
 export async function saveMeeting(file: OatsFile): Promise<void> {
+  if (isFreshMode) {
+    memCache.set(file.meetingId, detach(file));
+    return;
+  }
   await ensureDir();
   const json = JSON.stringify(file, null, 2);
   await writeTextFile(meetingPath(file.meetingId), json, { baseDir: BASE_DIR });
 }
 
 export async function deleteMeeting(id: string): Promise<void> {
+  if (isFreshMode) {
+    memCache.delete(id);
+    return;
+  }
   try {
     await remove(meetingPath(id), { baseDir: BASE_DIR });
   } catch {

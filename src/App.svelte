@@ -2,13 +2,31 @@
   import Header from "./components/Header.svelte";
   import Editor from "./components/Editor.svelte";
   import Sidebar from "./components/Sidebar.svelte";
+  import GettingStarted from "./components/GettingStarted.svelte";
+  import Coachmark from "./components/Coachmark.svelte";
   import * as store from "./lib/store.svelte";
   import { saveFile, loadFile } from "./lib/file";
   import { isNative } from "./lib/platform";
+  import { isFreshMode } from "./lib/freshMode";
 
   let editor: Editor | undefined = $state();
-  let sidebarCollapsed = $state(false);
+  // Start collapsed when there's nothing in the sidebar to show — first launch
+  // lands on Getting Started and the empty meeting list is just visual noise.
+  // Once a meeting exists, expanding is the default.
+  let sidebarCollapsed = $state(store.state.meetings.length === 0);
   let searchOpen = $state(false);
+
+  // Coachmark prompts the user to add their name. Shows whenever there's a
+  // meeting in view but no notetaker set — covers both "user clicked New
+  // without filling the hero input" and "app reopened with notetaker still
+  // empty". Dismissal is session-only (not persisted) so a future restart
+  // re-prompts if the name still isn't set.
+  let coachmarkDismissed = $state(false);
+  const showCoachmark = $derived(
+    store.state.meeting !== null &&
+      store.state.notetaker.trim() === "" &&
+      !coachmarkDismissed,
+  );
 
   $effect(() => {
     // Search lives inside the sidebar; collapsing it should dismiss search.
@@ -17,6 +35,7 @@
 
   const LS_SIDEBAR_WIDTH = "oatpad.sidebarWidth";
   function loadSidebarWidth(): number {
+    if (isFreshMode) return 240;
     if (typeof localStorage === "undefined") return 240;
     const raw = localStorage.getItem(LS_SIDEBAR_WIDTH);
     const n = raw ? Number(raw) : NaN;
@@ -24,6 +43,7 @@
   }
   let sidebarWidth = $state(loadSidebarWidth());
   $effect(() => {
+    if (isFreshMode) return;
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(LS_SIDEBAR_WIDTH, String(sidebarWidth));
     }
@@ -98,6 +118,9 @@
       if (!ok) return;
     }
     store.startNewMeeting();
+    // Auto-expand the sidebar so the new meeting's row is visible — covers
+    // the Getting Started CTA path where the sidebar starts collapsed.
+    sidebarCollapsed = false;
     editor?.reload();
   }
 
@@ -142,7 +165,11 @@
       />
     {/if}
     <div class="main">
-      <Editor bind:this={editor} />
+      {#if store.state.meeting}
+        <Editor bind:this={editor} />
+      {:else}
+        <GettingStarted onnew={handleNew} onopen={handleOpen} />
+      {/if}
     </div>
   </div>
   {#if isNative && !sidebarCollapsed}
@@ -152,6 +179,13 @@
       onmousedown={startResize}
       style:left="{sidebarWidth - 6}px"
     ></button>
+  {/if}
+  {#if showCoachmark}
+    <Coachmark
+      targetSelector="[data-coachmark-target='notetaker']"
+      text="Don't forget to add your name!"
+      ondismiss={() => (coachmarkDismissed = true)}
+    />
   {/if}
 </div>
 

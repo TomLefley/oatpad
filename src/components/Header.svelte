@@ -3,6 +3,7 @@
   import { isNative, isWeb } from "../lib/platform";
   import ThemeToggle from "./ThemeToggle.svelte";
   import MeetingMeta from "./MeetingMeta.svelte";
+  import OatpadTitle from "./OatpadTitle.svelte";
   import CalendarPlus from "@lucide/svelte/icons/calendar-plus";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Save from "@lucide/svelte/icons/save";
@@ -31,34 +32,9 @@
     ontogglesearch,
   }: Props = $props();
 
-  let draft = $state(store.state.notetaker);
-  let inputEl: HTMLInputElement | undefined = $state();
-
-  $effect(() => {
-    const n = store.state.notetaker;
-    if (n !== draft && document.activeElement !== inputEl) {
-      draft = n;
-    }
-  });
-
-  function commitName(): void {
-    const trimmed = draft.trim();
-    draft = trimmed;
-    store.setNotetaker(trimmed);
-  }
-
-  function handleKeydown(e: KeyboardEvent): void {
-    if (e.key === "Enter") {
-      inputEl?.blur();
-    } else if (e.key === "Escape") {
-      draft = store.state.notetaker;
-      inputEl?.blur();
-    }
-  }
-
-  function handleFocus(): void {
-    inputEl?.select();
-  }
+  // Hide the title on the Getting Started view — it lives in the centred
+  // hero there instead.
+  const showTitle = $derived(store.state.meeting !== null);
 
   // Track collapse transitions so we can run a mirrored wobble animation
   // when the sidebar closes. (CSS animations only fire on class-add, not on
@@ -139,31 +115,13 @@
     </div>
     <MeetingMeta />
     <div class="spacer" data-tauri-drag-region></div>
-    <h1 class="title"
-      ><input
-        bind:this={inputEl}
-        bind:value={draft}
-        class="name-input"
-        placeholder="Your name"
-        onkeydown={handleKeydown}
-        onfocus={handleFocus}
-        onblur={commitName}
-      /><span class="suffix">'s </span><span class="oat-word">oat</span><span
-        class="pad">pad</span>
-    </h1>
+    {#if showTitle}
+      <OatpadTitle size="header" />
+    {/if}
   {:else}
-    <h1 class="title"
-      ><input
-        bind:this={inputEl}
-        bind:value={draft}
-        class="name-input"
-        placeholder="Your name"
-        onkeydown={handleKeydown}
-        onfocus={handleFocus}
-        onblur={commitName}
-      /><span class="suffix">'s </span><span class="oat-word">oat</span><span
-        class="pad">pad</span>
-    </h1>
+    {#if showTitle}
+      <OatpadTitle size="header" />
+    {/if}
     <div class="spacer"></div>
     <div class="actions">
       <ThemeToggle />
@@ -257,54 +215,6 @@
     pointer-events: auto;
   }
 
-  .title {
-    margin: 0;
-    padding: 10px 16px 10px 0;
-    font-family:
-      "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
-      Arial, sans-serif;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--accent);
-    line-height: 1;
-    white-space: nowrap;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  .suffix,
-  .oat-word,
-  .pad {
-    white-space: pre;
-  }
-  .oat-word {
-    margin-left: 0.3em;
-  }
-  .pad {
-    margin-left: 0.05em;
-  }
-  .name-input {
-    all: unset;
-    min-width: 1ch;
-    field-sizing: content;
-    cursor: text;
-    /* Reserve the underline slot but hide it — see state rules below. */
-    text-decoration: underline dashed transparent;
-    text-underline-offset: 0.18em;
-    text-decoration-thickness: 1px;
-    transition: text-decoration-color 120ms ease;
-  }
-  /* Empty (placeholder showing): muted underline hints it's editable. */
-  .name-input:placeholder-shown {
-    text-decoration-color: var(--muted);
-  }
-  /* Hover always shows the accent underline, whether set or unset. */
-  .name-input:hover:not(:focus) {
-    text-decoration-color: var(--accent);
-  }
-  .name-input::placeholder {
-    color: var(--muted);
-    opacity: 1;
-  }
   .spacer {
     flex: 1;
     align-self: stretch;
