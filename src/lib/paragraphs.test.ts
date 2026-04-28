@@ -6,7 +6,6 @@ import {
   getBlockElements,
   readParagraphs,
   reconcileNoteIds,
-  seedFromDom,
 } from "./paragraphs";
 
 function makeIdFactory(): () => string {
@@ -114,31 +113,3 @@ describe("readParagraphs", () => {
   });
 });
 
-describe("seedFromDom", () => {
-  it("seeds the diff state from the current dom, keyed by note id", () => {
-    root.innerHTML =
-      '<p data-note-id="n1">first</p><p data-note-id="n2">second</p>';
-    const seed = seedFromDom(root);
-    expect(seed.size).toBe(2);
-    expect(seed.get("n1")).toBe("first");
-    expect(seed.get("n2")).toBe("second");
-  });
-
-  it("skips blocks with no note id (commit will assign one on first edit)", () => {
-    root.innerHTML = '<p>no id</p><p data-note-id="n1">has id</p>';
-    const seed = seedFromDom(root);
-    expect(seed.size).toBe(1);
-    expect(seed.get("n1")).toBe("has id");
-  });
-
-  it("skips whitespace-only blocks so the first keystroke fires note_created, not note_edited", () => {
-    root.innerHTML =
-      '<p data-note-id="empty"></p>' +
-      '<p data-note-id="ws">   </p>' +
-      '<p data-note-id="real">content</p>';
-    const seed = seedFromDom(root);
-    expect(seed.has("empty")).toBe(false);
-    expect(seed.has("ws")).toBe(false);
-    expect(seed.get("real")).toBe("content");
-  });
-});

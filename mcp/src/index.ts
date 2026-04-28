@@ -45,7 +45,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_meeting",
       description:
-        "Retrieve a single Oatpad meeting by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata).",
+        "Retrieve a single Oatpad meeting by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata). Note events are: `note_created` (one per noteId, no text — marks the moment a paragraph appeared); `note_updated` (zero-or-more per noteId, carries the full text at a settled checkpoint — emitted when the user reverses typing direction across a word boundary, leaves the note, or substitutes a complete word); `note_deleted` (when the paragraph is removed).",
       inputSchema: {
         type: "object",
         properties: {

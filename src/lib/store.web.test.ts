@@ -161,7 +161,7 @@ describe("hasUnsavedWork", () => {
     await store.initMeeting();
     store.appendEvents([
       {
-        type: "note_created",
+        type: "note_updated",
         id: "n1",
         ts: "2026-04-27T10:00:00.000Z",
         noteId: "p1",
@@ -211,6 +211,12 @@ describe("replaceMeetingFromFile", () => {
           type: "note_created",
           id: "e2",
           ts: "2026-04-26T15:00:01.000Z",
+          noteId: "n1",
+        },
+        {
+          type: "note_updated",
+          id: "e3",
+          ts: "2026-04-26T15:00:02.000Z",
           noteId: "n1",
           text: "imported note",
         },

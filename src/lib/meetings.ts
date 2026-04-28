@@ -13,7 +13,7 @@ import { parseOatsFile } from "./file";
 /*
  * Native meeting persistence — one `.oats` file per meeting, living in
  * $APPDATA/meetings/<meetingId>.oats (macOS:
- * ~/Library/Application Support/com.tomlefley.oatpad/meetings/).
+ * ~/Library/Application Support/dev.lefley.oatpad/meetings/).
  *
  * Only used when platform.isNative is true; importing this module in a
  * browser tab will fail at call time because the Tauri fs plugin is absent.

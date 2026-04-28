@@ -19,6 +19,12 @@ const valid = {
       id: "e2",
       ts: "2026-04-23T10:00:01.000Z",
       noteId: "n1",
+    },
+    {
+      type: "note_updated",
+      id: "e3",
+      ts: "2026-04-23T10:00:02.000Z",
+      noteId: "n1",
       text: "hello",
     },
   ],
@@ -34,7 +40,7 @@ describe("parseOatsFile", () => {
   it("accepts a valid file", () => {
     const file = parseOatsFile(JSON.stringify(valid));
     expect(file.notetaker).toBe("Tom");
-    expect(file.events).toHaveLength(2);
+    expect(file.events).toHaveLength(3);
     expect(file.snapshot.ops[0]).toEqual({ insert: "hello\n" });
   });
 
@@ -74,24 +80,70 @@ describe("parseOatsFile", () => {
     ).toThrow(/unknown type/);
   });
 
-  it("rejects note_edited missing noteId", () => {
+  it("rejects legacy note_edited as an unknown type", () => {
     expect(() =>
       parseOatsFile(
         withChange({
-          events: [{ type: "note_edited", id: "x", ts: "t", text: "hi" }],
+          events: [
+            {
+              type: "note_edited",
+              id: "x",
+              ts: "t",
+              noteId: "n",
+              text: "hi",
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/unknown type/);
+  });
+
+  it("rejects note_updated missing noteId", () => {
+    expect(() =>
+      parseOatsFile(
+        withChange({
+          events: [{ type: "note_updated", id: "x", ts: "t", text: "hi" }],
         }),
       ),
     ).toThrow(/noteId/);
   });
 
-  it("rejects note_created missing text", () => {
+  it("rejects note_updated missing text", () => {
     expect(() =>
       parseOatsFile(
         withChange({
-          events: [{ type: "note_created", id: "x", ts: "t", noteId: "n" }],
+          events: [{ type: "note_updated", id: "x", ts: "t", noteId: "n" }],
         }),
       ),
     ).toThrow(/text/);
+  });
+
+  it("accepts note_created without text (no longer carries content)", () => {
+    const file = parseOatsFile(
+      withChange({
+        events: [{ type: "note_created", id: "x", ts: "t", noteId: "n" }],
+      }),
+    );
+    expect(file.events[0]).toEqual({
+      type: "note_created",
+      id: "x",
+      ts: "t",
+      noteId: "n",
+    });
+  });
+
+  it("does not enforce 'no extra fields' on note_created (legacy text rides along)", () => {
+    // The validator only checks required fields exist. A legacy event with
+    // extra `text` parses without error — its consumers ignore the field.
+    // Documents this so a future strict-mode tightening is intentional.
+    const file = parseOatsFile(
+      withChange({
+        events: [
+          { type: "note_created", id: "x", ts: "t", noteId: "n", text: "hi" },
+        ],
+      }),
+    );
+    expect((file.events[0] as { text?: unknown }).text).toBe("hi");
   });
 
   it("rejects snapshot without ops array", () => {

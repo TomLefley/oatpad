@@ -13,7 +13,7 @@ export function editBounds(
   for (const e of events) {
     if (
       e.type === "note_created" ||
-      e.type === "note_edited" ||
+      e.type === "note_updated" ||
       e.type === "note_deleted"
     ) {
       if (!first || e.ts < first) first = e.ts;

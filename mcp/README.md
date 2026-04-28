@@ -15,9 +15,9 @@ to Claude (or any MCP-compatible client) over stdio.
 
 The server reads `.oats` files from Oatpad's application-data directory:
 
-- macOS: `~/Library/Application Support/com.tomlefley.oatpad/meetings/`
-- Linux: `$XDG_DATA_HOME/com.tomlefley.oatpad/meetings/` (default `~/.local/share/...`)
-- Windows: `%APPDATA%/com.tomlefley.oatpad/meetings/`
+- macOS: `~/Library/Application Support/dev.lefley.oatpad/meetings/`
+- Linux: `$XDG_DATA_HOME/dev.lefley.oatpad/meetings/` (default `~/.local/share/...`)
+- Windows: `%APPDATA%/dev.lefley.oatpad/meetings/`
 
 It only reads — it never writes back, so it can't corrupt anything Oatpad has
 saved.

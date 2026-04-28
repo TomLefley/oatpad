@@ -1,7 +1,3 @@
-<script lang="ts" module>
-  export const IDLE_MS = 3000;
-</script>
-
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import Quill from "quill";
@@ -11,50 +7,77 @@
     reconcileNoteIds,
     applyParagraphIds,
     readParagraphs,
-    seedFromDom,
   } from "../lib/paragraphs";
   import { matchInline } from "../lib/markdownShortcuts";
-  import { computeCommit } from "../lib/commit";
+  import {
+    createNoteFlushState,
+    seedNoteFlushState,
+    onTextChange,
+    flushNote,
+    flushAll,
+    type NoteFlushMap,
+    type FlushIO,
+  } from "../lib/noteFlush";
   import * as store from "../lib/store.svelte";
   import MeetingName from "./MeetingName.svelte";
 
+  const SNAPSHOT_DEBOUNCE_MS = 300;
+
   let container: HTMLDivElement | undefined = $state();
   let quill: Quill | null = null;
-  let committedState = new Map<string, string>();
-  let idleTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastBlockIndex: number | null = null;
+  let noteFlushState: NoteFlushMap = createNoteFlushState();
+  let activeNoteId: string | null = null;
+  let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
   let suppressCommit = false;
 
-  export function flush(): void {
-    if (!quill) return;
-    if (idleTimer) {
-      clearTimeout(idleTimer);
-      idleTimer = null;
-    }
-    if (suppressCommit) return;
+  const io: FlushIO = {
+    makeId: () => uuid(),
+    now: () => new Date().toISOString(),
+  };
 
-    reconcileNoteIds(quill.root, uuid);
+  function emit(events: ReturnType<typeof onTextChange>["events"]): void {
+    if (events.length > 0) store.appendEvents(events);
+  }
+
+  function persistSnapshot(): void {
+    if (!quill) return;
     const paragraphs = readParagraphs(quill.root);
-    const ts = new Date().toISOString();
-    const { events, nextState } = computeCommit({
-      previous: committedState,
-      current: paragraphs,
-      timestamp: ts,
-      makeId: uuid,
-    });
-    committedState = nextState;
-    if (events.length > 0) {
-      store.appendEvents(events);
-    }
     store.setSnapshot(
       quill.getContents() as unknown as QuillDelta,
       paragraphs.map((p) => p.noteId),
     );
   }
 
+  function scheduleSnapshot(): void {
+    if (snapshotTimer) clearTimeout(snapshotTimer);
+    snapshotTimer = setTimeout(() => {
+      snapshotTimer = null;
+      persistSnapshot();
+    }, SNAPSHOT_DEBOUNCE_MS);
+  }
+
+  // Synchronous flush — emit pending events for every tracked note and
+  // write the snapshot. Used externally before save / open / new / switch /
+  // delete so the in-memory store is fully up to date.
+  export function flush(): void {
+    if (!quill) return;
+    if (snapshotTimer) {
+      clearTimeout(snapshotTimer);
+      snapshotTimer = null;
+    }
+    if (suppressCommit) return;
+    const out = flushAll(noteFlushState, io);
+    emit(out.events);
+    persistSnapshot();
+  }
+
   export function reload(): void {
     if (!quill) return;
     suppressCommit = true;
+    if (snapshotTimer) {
+      clearTimeout(snapshotTimer);
+      snapshotTimer = null;
+    }
     const meeting = store.state.meeting;
     if (meeting) {
       quill.setContents(meeting.snapshot as unknown as never);
@@ -63,7 +86,8 @@
       quill.setContents({ ops: [{ insert: "\n" }] } as unknown as never);
     }
     reconcileNoteIds(quill.root, uuid);
-    committedState = seedFromDom(quill.root);
+    noteFlushState = seedNoteFlushState(readParagraphs(quill.root));
+    activeNoteId = null;
     suppressCommit = false;
   }
 
@@ -73,14 +97,20 @@
     return dn instanceof HTMLElement ? dn : null;
   }
 
-  function currentBlockIndex(): number | null {
+  function currentNoteId(): string | null {
     if (!quill) return null;
     const sel = quill.getSelection();
     if (!sel) return null;
     const [line] = quill.getLine(sel.index);
     const domNode = getLineDomNode(line);
     if (!domNode) return null;
-    return Array.from(quill.root.children).indexOf(domNode);
+    return domNode.getAttribute("data-note-id");
+  }
+
+  function flushActiveNote(): void {
+    if (!activeNoteId) return;
+    const out = flushNote(noteFlushState, activeNoteId, io);
+    emit(out.events);
   }
 
   function handleTextChange(
@@ -93,9 +123,12 @@
       store.noteInput();
       applyInlineMarkdown();
     }
-    if (quill) reconcileNoteIds(quill.root, uuid);
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(flush, IDLE_MS);
+    if (!quill) return;
+    reconcileNoteIds(quill.root, uuid);
+    const paragraphs = readParagraphs(quill.root);
+    const out = onTextChange(noteFlushState, paragraphs, io);
+    emit(out.events);
+    scheduleSnapshot();
   }
 
   function applyInlineMarkdown(): void {
@@ -129,17 +162,22 @@
   function handleSelectionChange(
     range: { index: number; length: number } | null,
   ): void {
-    if (!range) return;
-    const idx = currentBlockIndex();
-    if (idx === null) return;
-    if (lastBlockIndex !== null && idx !== lastBlockIndex) {
-      flush();
+    if (!range) {
+      // Editor lost focus via Quill's own tracking — leave the active-note
+      // bookkeeping to handleBlur which fires on the DOM blur event so the
+      // ordering is consistent.
+      return;
     }
-    lastBlockIndex = idx;
+    const noteId = currentNoteId();
+    if (noteId !== activeNoteId) {
+      flushActiveNote();
+      activeNoteId = noteId;
+    }
   }
 
   function handleBlur(): void {
     flush();
+    activeNoteId = null;
   }
 
   function addToolbarTooltips(root: HTMLElement): void {
@@ -205,7 +243,7 @@
   });
 
   onDestroy(() => {
-    if (idleTimer) clearTimeout(idleTimer);
+    if (snapshotTimer) clearTimeout(snapshotTimer);
     if (quill) {
       quill.root.removeEventListener("blur", handleBlur);
     }

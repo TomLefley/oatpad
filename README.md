@@ -74,7 +74,7 @@ Event types: `meeting_started`, `note_created`, `note_edited`, `note_deleted`,
 
 | Mode | Where the data lives |
 | --- | --- |
-| Native (`.app`) | One `.oats` file per meeting in `~/Library/Application Support/com.tomlefley.oatpad/meetings/`. Autosaves on every mutation, debounced ~400ms. |
+| Native (`.app`) | One `.oats` file per meeting in `~/Library/Application Support/dev.lefley.oatpad/meetings/`. Autosaves on every mutation, debounced ~400ms. |
 | Web | Current meeting in `localStorage["oatpad.meeting"]`. Save / Open / New manage `.oats` files via the browser's native dialogs (with a download fallback). |
 
 On first native launch, an existing localStorage meeting (if any) is migrated

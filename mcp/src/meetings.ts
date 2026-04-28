@@ -10,7 +10,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const APP_ID = "com.tomlefley.oatpad";
+const APP_ID = "dev.lefley.oatpad";
 
 export function appDataDir(): string {
   if (process.platform === "darwin") {

@@ -10,11 +10,10 @@ export type NoteCreatedEvent = {
   id: string;
   ts: string;
   noteId: string;
-  text: string;
 };
 
-export type NoteEditedEvent = {
-  type: "note_edited";
+export type NoteUpdatedEvent = {
+  type: "note_updated";
   id: string;
   ts: string;
   noteId: string;
@@ -38,7 +37,7 @@ export type FileLoadedEvent = {
 export type OatsEvent =
   | MeetingStartedEvent
   | NoteCreatedEvent
-  | NoteEditedEvent
+  | NoteUpdatedEvent
   | NoteDeletedEvent
   | FileLoadedEvent;
 

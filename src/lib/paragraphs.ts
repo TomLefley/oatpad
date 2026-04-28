@@ -39,17 +39,3 @@ export function readParagraphs(root: HTMLElement): Paragraph[] {
   }));
 }
 
-// Builds the seed map used by commit diffs after a load or initial mount.
-// Whitespace-only paragraphs are skipped so a first keystroke in an empty
-// block fires note_created rather than note_edited.
-export function seedFromDom(root: HTMLElement): Map<string, string> {
-  const state = new Map<string, string>();
-  for (const block of getBlockElements(root)) {
-    const id = block.getAttribute(DATA_ATTR);
-    if (!id) continue;
-    const md = htmlToMarkdown(block.outerHTML);
-    if (md.trim() === "") continue;
-    state.set(id, md);
-  }
-  return state;
-}

@@ -216,7 +216,7 @@ export function parseOatsFile(text: string): OatsFile {
 const EVENT_TYPES = new Set([
   "meeting_started",
   "note_created",
-  "note_edited",
+  "note_updated",
   "note_deleted",
   "file_loaded",
 ]);
@@ -234,7 +234,9 @@ function validateEvent(raw: unknown): OatsEvent {
       if (typeof raw.notetaker !== "string") throw new Error("missing notetaker");
       return raw as unknown as OatsEvent;
     case "note_created":
-    case "note_edited":
+      if (typeof raw.noteId !== "string") throw new Error("missing noteId");
+      return raw as unknown as OatsEvent;
+    case "note_updated":
       if (typeof raw.noteId !== "string") throw new Error("missing noteId");
       if (typeof raw.text !== "string") throw new Error("missing text");
       return raw as unknown as OatsEvent;

@@ -33,14 +33,14 @@ export function replay(events: OatsEvent[]): MeetingState {
       case "note_created":
         state.notes.set(event.noteId, {
           noteId: event.noteId,
-          currentText: event.text,
+          currentText: "",
           createdAt: event.ts,
           lastEditedAt: event.ts,
-          history: [{ ts: event.ts, text: event.text }],
+          history: [],
           deleted: false,
         });
         break;
-      case "note_edited": {
+      case "note_updated": {
         const existing = state.notes.get(event.noteId);
         if (!existing) break;
         existing.currentText = event.text;
