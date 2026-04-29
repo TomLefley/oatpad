@@ -58,12 +58,13 @@
       if (!expanded) {
         collapsing = true;
         if (collapsingTimer) clearTimeout(collapsingTimer);
-        // Hold the class for the full animation window: 600ms duration
-        // plus the longest per-row stagger (idx 3 × 30ms) plus a touch
-        // of slack so the trailing icon's tail oscillation is included.
+        // Hold the class for the full animation window: 420ms duration
+        // plus the longest per-icon stagger (idx 3 × 30ms = 90ms) plus
+        // a touch of slack so the trailing icon's tail oscillation is
+        // included.
         collapsingTimer = setTimeout(() => {
           collapsing = false;
-        }, 720);
+        }, 540);
       } else if (collapsingTimer) {
         clearTimeout(collapsingTimer);
         collapsingTimer = null;
@@ -279,21 +280,20 @@
     --amp: 3px;
     --idx: 3;
   }
-  /* Peak at 43% (~258ms into a 600ms run), comfortably after the
-     drawer's 180ms width transition settles, so the icons keep
-     moving as if carrying inertia past the drawer's stop. Two damped
-     oscillations then carry them back to rest. Per-segment easing
-     uses cubic-bezier(0.4, 0, 0.6, 1), a sine-like S-curve that feels
-     more pendulum than spring.
+  /* Peak at 43% (~180ms — exactly when the drawer's 180ms width transition
+     settles), so the lateral motion is continuous through the handoff. After
+     the peak, two damped oscillations carry the icons back to rest. Per-
+     segment easing uses cubic-bezier(0.4, 0, 0.6, 1), a sine-like S-curve
+     that feels more pendulum than spring.
 
      Each icon's animation starts at idx × 30ms, so the wave radiates
      outward from the toggle (idx 0) — the only icon visible while
-     collapsed — through the icons that are revealed when expanding.
+     collapsed — through the icons revealed when the sidebar expands.
      Direction is driven by the `--dir` custom property: +1 for expand
      (overshoot right), -1 for collapse (overshoot left). */
   .icon-tray.bouncing-in .wobble,
   .icon-tray.bouncing-out .wobble {
-    animation: trayWobble 600ms linear;
+    animation: trayWobble 420ms linear;
     animation-delay: calc(var(--idx, 0) * 30ms);
   }
   .icon-tray.bouncing-in .wobble {
