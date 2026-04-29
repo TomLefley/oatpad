@@ -266,19 +266,19 @@
      unfurling: the leading toggle bounces hardest, the trailing
      settings cog barely twitches. */
   .toggle-slot {
-    --amp: 5px;
+    --amp: 7px;
     --idx: 0;
   }
   .new-slot {
-    --amp: 2.25px;
+    --amp: 3px;
     --idx: 1;
   }
   .search-slot {
-    --amp: 0.9px;
+    --amp: 1.25px;
     --idx: 2;
   }
   .settings-slot {
-    --amp: 0.3px;
+    --amp: 0.4px;
     --idx: 3;
   }
   /* Peak at 43% (~180ms — exactly when the drawer's 180ms width transition
