@@ -22,6 +22,12 @@
   let installBusy = $state(false);
   let installError = $state<string | null>(null);
   let version = $state<string | null>(null);
+  // Disables the MCP buttons until loadConfig resolves. Without this, a
+  // user clicking before the async load finishes would have the optimistic
+  // defaults (mcpEnabled=true, mcpInstalled=false) baked into saveConfig's
+  // `{...}` object literal — silently re-enabling an explicitly-disabled
+  // server, or wiping the sticky install marker.
+  let configLoaded = $state(false);
 
   // Pull persisted config once on mount. Fail-open defaults mean a fresh
   // install or a missing config file lands on "enabled" + "never installed"
@@ -30,6 +36,7 @@
     void loadConfig().then((c) => {
       mcpEnabled = c.mcpEnabled;
       mcpInstalled = c.mcpInstalled;
+      configLoaded = true;
     });
     if (isNative) {
       void getVersion()
@@ -144,7 +151,7 @@
         onclick={installMcp}
         aria-label={installLabel}
         title={installTitle}
-        disabled={installBusy}
+        disabled={installBusy || !configLoaded}
       >
         <BotMessageSquare size={16} strokeWidth={2} />
       </button>
@@ -156,6 +163,7 @@
         aria-checked={mcpEnabled}
         aria-label={mcpEnabled ? "Stop MCP server" : "Start MCP server"}
         title={mcpEnabled ? "Running" : "Stopped"}
+        disabled={!configLoaded}
       >
         {#if mcpEnabled}
           <Bot size={16} strokeWidth={2} />

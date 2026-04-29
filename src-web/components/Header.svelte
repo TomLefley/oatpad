@@ -313,7 +313,7 @@
      segment easing uses cubic-bezier(0.4, 0, 0.6, 1), a sine-like S-curve
      that feels more pendulum than spring.
 
-     Each icon's animation starts at idx × 30ms, so the wave radiates
+     Each icon's animation starts at idx × 45ms, so the wave radiates
      outward from the toggle (idx 0) — the only icon visible while
      collapsed — through the icons revealed when the sidebar expands.
      Direction is driven by the `--dir` custom property: +1 for expand

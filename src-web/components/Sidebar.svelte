@@ -233,7 +233,14 @@
   }
 
   function handleSwitch(id: string): void {
-    if (confirmingId && confirmingId !== id) clearConfirm();
+    // Any row activation cancels an armed delete — picking a meeting to
+    // open (even the same one whose trash is armed) is an explicit
+    // "I want this meeting" signal, the opposite of "delete it". Without
+    // this, clicking the body of an armed row would open the meeting
+    // *and* leave the row red-tinted with the check icon visible, so a
+    // single follow-up click on that icon would silently delete what the
+    // user just opened.
+    if (confirmingId) clearConfirm();
     onswitch(id);
   }
 </script>
