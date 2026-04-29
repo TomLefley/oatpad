@@ -20,10 +20,22 @@ import {
   appDataDir,
   getMeeting,
   getMeetingsInRange,
+  isMcpEnabled,
   listMeetings,
 } from "./meetings.js";
 
-const MEETINGS_DIR = join(appDataDir(), "meetings");
+const APP_DATA = appDataDir();
+const MEETINGS_DIR = join(APP_DATA, "meetings");
+
+const DISABLED_RESPONSE = {
+  isError: true,
+  content: [
+    {
+      type: "text",
+      text: "Oatpad's MCP server is disabled. Enable it from the settings cog in the Oatpad app to access meetings.",
+    },
+  ],
+};
 
 const server = new Server(
   { name: "Oatpad", version: "0.1.0" },
@@ -85,6 +97,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
+
+  if (!(await isMcpEnabled(APP_DATA))) {
+    return DISABLED_RESPONSE;
+  }
 
   if (name === "list_meetings") {
     const summaries = await listMeetings(MEETINGS_DIR);

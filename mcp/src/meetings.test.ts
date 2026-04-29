@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   getMeeting,
   getMeetingsInRange,
+  isMcpEnabled,
   isOatsFile,
   listMeetings,
   summaryOf,
@@ -250,5 +251,43 @@ describe("nested directory creation", () => {
     await mkdir(join(dir, "subdir.oats"));
     const summaries = await listMeetings(dir);
     expect(summaries.map((m) => m.meetingId)).toEqual(["aaa"]);
+  });
+});
+
+describe("isMcpEnabled", () => {
+  it("returns true when no config file exists", async () => {
+    expect(await isMcpEnabled(dir)).toBe(true);
+  });
+
+  it("returns true when the config sets mcpEnabled: true", async () => {
+    await writeFile(
+      join(dir, "config.json"),
+      JSON.stringify({ mcpEnabled: true }),
+      "utf8",
+    );
+    expect(await isMcpEnabled(dir)).toBe(true);
+  });
+
+  it("returns false when the config sets mcpEnabled: false", async () => {
+    await writeFile(
+      join(dir, "config.json"),
+      JSON.stringify({ mcpEnabled: false }),
+      "utf8",
+    );
+    expect(await isMcpEnabled(dir)).toBe(false);
+  });
+
+  it("treats malformed config as enabled (fail-open)", async () => {
+    await writeFile(join(dir, "config.json"), "{not json", "utf8");
+    expect(await isMcpEnabled(dir)).toBe(true);
+  });
+
+  it("treats unrelated config keys as enabled", async () => {
+    await writeFile(
+      join(dir, "config.json"),
+      JSON.stringify({ other: "value" }),
+      "utf8",
+    );
+    expect(await isMcpEnabled(dir)).toBe(true);
   });
 });

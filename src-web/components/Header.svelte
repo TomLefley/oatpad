@@ -8,6 +8,7 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Save from "@lucide/svelte/icons/save";
   import Search from "@lucide/svelte/icons/search";
+  import Settings from "@lucide/svelte/icons/settings";
   import PanelLeftOpen from "@lucide/svelte/icons/panel-left-open";
   import PanelLeftClose from "@lucide/svelte/icons/panel-left-close";
 
@@ -20,6 +21,8 @@
     ontogglesidebar?: () => void;
     searchOpen?: boolean;
     ontogglesearch?: () => void;
+    settingsOpen?: boolean;
+    ontogglesettings?: () => void;
   };
   let {
     onnew,
@@ -30,6 +33,8 @@
     ontogglesidebar,
     searchOpen = false,
     ontogglesearch,
+    settingsOpen = false,
+    ontogglesettings,
   }: Props = $props();
 
   // Hide the title on the Getting Started view — it lives in the centred
@@ -79,7 +84,16 @@
         class:bouncing-out={collapsing}
       >
         <div class="expanded-icons">
-          <span class="wobble theme-slot"><ThemeToggle /></span>
+          <button
+            class="icon-btn wobble settings-slot"
+            class:active={settingsOpen}
+            onclick={ontogglesettings}
+            aria-label="Settings"
+            aria-expanded={settingsOpen}
+            title="Settings"
+          >
+            <Settings size={18} strokeWidth={2} />
+          </button>
           <button
             class="icon-btn wobble search-slot"
             class:active={searchOpen}
@@ -240,9 +254,7 @@
     display: flex;
     align-items: center;
   }
-  .theme-slot {
-    display: inline-flex;
-    align-items: center;
+  .settings-slot {
     --amp: 3px;
   }
   .search-slot {

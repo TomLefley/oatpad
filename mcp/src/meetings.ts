@@ -26,6 +26,22 @@ export function appDataDir(): string {
   return join(base, APP_ID);
 }
 
+// Reads the mcpEnabled toggle from `$APPDATA/dev.lefley.oatpad/config.json`.
+// The file is owned by the Oatpad app's settings UI; missing/malformed
+// config is treated as enabled so the server doesn't lock itself out
+// before the app has ever written one.
+export async function isMcpEnabled(appData: string): Promise<boolean> {
+  try {
+    const text = await readFile(join(appData, "config.json"), "utf8");
+    const parsed: unknown = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object") return true;
+    const v = (parsed as { mcpEnabled?: unknown }).mcpEnabled;
+    return v !== false;
+  } catch {
+    return true;
+  }
+}
+
 export type MeetingSummary = {
   meetingId: string;
   title: string;

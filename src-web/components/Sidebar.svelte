@@ -15,6 +15,7 @@
   import Calendar from "@lucide/svelte/icons/calendar";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Settings from "./Settings.svelte";
 
   type Props = {
     collapsed: boolean;
@@ -23,6 +24,8 @@
     ondelete: (id: string) => void | Promise<void>;
     searchOpen?: boolean;
     oncloseSearch?: () => void;
+    settingsOpen?: boolean;
+    oncloseSettings?: () => void;
   };
   let {
     collapsed,
@@ -31,6 +34,8 @@
     ondelete,
     searchOpen = false,
     oncloseSearch,
+    settingsOpen = false,
+    oncloseSettings,
   }: Props = $props();
 
   type SearchMode = "text" | "date";
@@ -74,6 +79,26 @@
       viewMonth = monthStart(new Date());
     }
   });
+
+  // Settings bubble — its own measured-height-driven spacer so it grows
+  // and shrinks in lockstep with whatever widgets land inside, sharing
+  // the same easing the search bubble uses.
+  let settingsHeight = $state(96);
+  let settingsContentsVisible = $state(false);
+  let settingsBubbleEl: HTMLDivElement | undefined = $state();
+  const settingsSpacerHeight = $derived(
+    settingsOpen ? Math.max(48, settingsHeight + SPACER_OVERHEAD) : 0,
+  );
+  $effect(() => {
+    if (!settingsOpen) settingsContentsVisible = false;
+  });
+
+  function handleSettingsKeydown(e: KeyboardEvent): void {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      oncloseSettings?.();
+    }
+  }
 
   // YMD keys for meetings, used to mark calendar days that have meetings.
   const meetingDates = $derived(
@@ -148,7 +173,41 @@
          computed from the same activeContentHeight that drives the body's
          content-stack — same source, same easing — so the spacer and the
          bubble grow/shrink in lockstep without one trailing the other. -->
-    <div class="search-spacer" style:height="{spacerHeight}px"></div>
+    <div
+      class="search-spacer"
+      style:height="{Math.max(spacerHeight, settingsSpacerHeight)}px"
+    ></div>
+    {#if settingsOpen}
+      <div class="search-bubble-anchor">
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div
+          bind:this={settingsBubbleEl}
+          class="search-bubble settings-bubble"
+          out:scale={{ duration: 100 }}
+          onanimationend={() => {
+            settingsContentsVisible = true;
+            // Focus the bubble itself so ESC reaches handleSettingsKeydown
+            // even before the user interacts with anything inside.
+            settingsBubbleEl?.focus({ preventScroll: true });
+          }}
+          onkeydown={handleSettingsKeydown}
+          role="dialog"
+          aria-label="Settings"
+          tabindex="-1"
+        >
+          <span class="search-arrow settings-arrow" aria-hidden="true"></span>
+          <div class="search-body settings-body">
+            <div
+              class="settings-stack"
+              class:visible={settingsContentsVisible}
+              bind:clientHeight={settingsHeight}
+            >
+              <Settings />
+            </div>
+          </div>
+        </div>
+      </div>
+    {/if}
     {#if searchOpen}
       <!-- Bubble lives in an absolutely-positioned anchor over the spacer
            area, so it can render with rounded ends regardless of the
@@ -478,6 +537,36 @@
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
     border-bottom: 6px solid var(--bubble-bg);
+  }
+  /* Settings bubble's arrow sits over the cog (the leftmost icon in the
+     expanded tray). Position derived the same way as .search-arrow:
+       12px (left-col padding-right)
+     +  32px (toggle-slot)
+     +   4px (expanded-icons margin-right)
+     +  32px (new-slot)
+     +   4px (gap)
+     +  32px (search-slot)
+     +   4px (gap)
+     +  16px (half settings-slot width)
+     = 136px from sidebar's right edge.
+     Bubble's right margin is 12px and the arrow's apex sits 6px in from
+     its right edge — so right: 136 - 12 - 6 = 118px. */
+  .settings-arrow {
+    right: 118px;
+  }
+  .settings-bubble {
+    /* Pop emanates from just below the cog. */
+    transform-origin: calc(100% - 124px) 0;
+  }
+  .settings-body {
+    padding: 8px 12px 10px;
+  }
+  .settings-stack {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .settings-stack.visible {
+    opacity: 1;
   }
   .search-body {
     background: var(--bubble-bg);

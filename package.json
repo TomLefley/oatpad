@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "predev": "node -e \"if(!require('fs').existsSync('mcp/dist/oatpad.mcpb'))process.exit(1)\" || npm run build:mcpb",
     "build": "tauri build",
     "dev:web": "vite",
     "build:web": "vite build",
+    "build:mcpb": "cd mcp && npm install && npm run pack",
+    "build:bundle-prereqs": "npm run build:web && npm run build:mcpb",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

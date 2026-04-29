@@ -15,6 +15,7 @@
   // Once a meeting exists, expanding is the default.
   let sidebarCollapsed = $state(store.state.meetings.length === 0);
   let searchOpen = $state(false);
+  let settingsOpen = $state(false);
 
   // Coachmark prompts the user to add their name. Shows whenever there's a
   // meeting in view but no notetaker set — covers both "user clicked New
@@ -29,9 +30,24 @@
   );
 
   $effect(() => {
-    // Search lives inside the sidebar; collapsing it should dismiss search.
-    if (sidebarCollapsed && searchOpen) searchOpen = false;
+    // Search and settings both live inside the sidebar; collapsing it
+    // should dismiss whichever is open.
+    if (sidebarCollapsed) {
+      if (searchOpen) searchOpen = false;
+      if (settingsOpen) settingsOpen = false;
+    }
   });
+
+  // Search and settings share the spacer slot at the top of the sidebar —
+  // opening one should close the other so the bubbles don't overlap.
+  function openSearch(): void {
+    if (settingsOpen) settingsOpen = false;
+    searchOpen = !searchOpen;
+  }
+  function openSettings(): void {
+    if (searchOpen) searchOpen = false;
+    settingsOpen = !settingsOpen;
+  }
 
   const LS_SIDEBAR_WIDTH = "oatpad.sidebarWidth";
   function loadSidebarWidth(): number {
@@ -151,7 +167,9 @@
     {sidebarWidth}
     ontogglesidebar={() => (sidebarCollapsed = !sidebarCollapsed)}
     {searchOpen}
-    ontogglesearch={() => (searchOpen = !searchOpen)}
+    ontogglesearch={openSearch}
+    {settingsOpen}
+    ontogglesettings={openSettings}
   />
   <div class="body">
     {#if isNative}
@@ -162,6 +180,8 @@
         ondelete={handleDelete}
         {searchOpen}
         oncloseSearch={() => (searchOpen = false)}
+        {settingsOpen}
+        oncloseSettings={() => (settingsOpen = false)}
       />
     {/if}
     <div class="main">
