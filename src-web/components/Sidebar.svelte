@@ -11,6 +11,7 @@
   import { tick } from "svelte";
   import { slide, scale } from "svelte/transition";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Check from "@lucide/svelte/icons/check";
   import Search from "@lucide/svelte/icons/search";
   import Calendar from "@lucide/svelte/icons/calendar";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
@@ -187,18 +188,61 @@
     }
   }
 
-  async function handleDelete(id: string, label: string): Promise<void> {
-    const ok = confirm(`Delete "${label}"? This can't be undone.`);
-    if (!ok) return;
-    await ondelete(id);
+  // Inline two-step delete: first click on a row's trash icon arms it
+  // (turns red, swaps to a check) and a second click on the same row's
+  // armed icon commits. Arming auto-cancels after a short window so an
+  // accidental click never lingers, and starting a different row's
+  // confirm cancels the previous one.
+  const CONFIRM_TIMEOUT_MS = 3000;
+  let confirmingId = $state<string | null>(null);
+  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearConfirm(): void {
+    if (confirmTimer) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+    confirmingId = null;
+  }
+
+  function handleDelete(id: string): void {
+    if (confirmingId === id) {
+      clearConfirm();
+      void ondelete(id);
+      return;
+    }
+    if (confirmTimer) clearTimeout(confirmTimer);
+    confirmingId = id;
+    confirmTimer = setTimeout(() => {
+      confirmTimer = null;
+      confirmingId = null;
+    }, CONFIRM_TIMEOUT_MS);
+  }
+
+  // ESC cancels an armed delete from anywhere — the trash button itself
+  // can't catch the keyup once focus has drifted, so this lives at the
+  // sidebar level. Same goes for switching meetings: the user picking a
+  // different row signals they no longer mean to delete the armed one.
+  function handleSidebarKeydown(e: KeyboardEvent): void {
+    if (e.key === "Escape" && confirmingId) {
+      e.preventDefault();
+      clearConfirm();
+    }
+  }
+
+  function handleSwitch(id: string): void {
+    if (confirmingId && confirmingId !== id) clearConfirm();
+    onswitch(id);
   }
 </script>
 
 {#if !collapsed}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <aside
     class="sidebar"
     style:width="{width}px"
     transition:slide={{ axis: "x", duration: 180 }}
+    onkeydown={handleSidebarKeydown}
   >
     <!-- Spacer holds the layout space below the bubble. Its height is
          computed from the same activeContentHeight that drives the body's
@@ -361,10 +405,11 @@
       {#each filteredMeetings as summary, i (summary.meetingId)}
         {@const current = store.state.meeting?.meetingId === summary.meetingId}
         {@const label = labelFor(summary.title)}
+        {@const confirming = confirmingId === summary.meetingId}
         <li class="row" class:current style:--idx={i}>
           <button
             class="row-main"
-            onclick={() => onswitch(summary.meetingId)}
+            onclick={() => handleSwitch(summary.meetingId)}
             title={label}
           >
             <span class="row-label">{label}</span>
@@ -374,18 +419,31 @@
                column is also clickable. -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="row-right" onclick={() => onswitch(summary.meetingId)}>
+          <div
+            class="row-right"
+            class:confirming
+            onclick={() => handleSwitch(summary.meetingId)}
+          >
             <span class="row-time">{fmtTimestamp(summary.createdAt)}</span>
             <button
               class="row-del"
+              class:confirming
               onclick={(e) => {
                 e.stopPropagation();
-                handleDelete(summary.meetingId, label);
+                handleDelete(summary.meetingId);
               }}
-              aria-label="Delete meeting"
-              title="Delete meeting"
+              aria-label={confirming
+                ? `Confirm delete "${label}"`
+                : `Delete "${label}"`}
+              title={confirming
+                ? "Click again to confirm"
+                : "Delete meeting"}
             >
-              <Trash2 size={14} strokeWidth={2} />
+              {#if confirming}
+                <Check size={14} strokeWidth={2} />
+              {:else}
+                <Trash2 size={14} strokeWidth={2} />
+              {/if}
             </button>
           </div>
         </li>
@@ -489,7 +547,8 @@
     transition: transform 160ms ease;
   }
   .row-right:hover .row-time,
-  .row-right:focus-within .row-time {
+  .row-right:focus-within .row-time,
+  .row-right.confirming .row-time {
     transform: translateX(-30px);
   }
   .row-del {
@@ -505,15 +564,26 @@
     opacity: 0;
     transition:
       opacity 160ms ease,
-      transform 160ms ease;
+      transform 160ms ease,
+      color 160ms ease;
   }
   .row-right:hover .row-del,
-  .row-right:focus-within .row-del {
+  .row-right:focus-within .row-del,
+  .row-del.confirming {
     opacity: 1;
     transform: translate(0, -50%);
   }
   .row-del:hover {
     color: var(--icon-active);
+  }
+  /* Armed-for-deletion state: a sustained red so the icon is
+     unmistakeable as a danger button, paired with the trash→check
+     swap above. The transform/opacity above keeps the icon visible
+     even when the cursor leaves the row, so the user can still see
+     what they armed. */
+  .row-del.confirming,
+  .row-del.confirming:hover {
+    color: #d33;
   }
 
   /* Search bubble — mirrors the Quill bubble look. The arrow's right offset
