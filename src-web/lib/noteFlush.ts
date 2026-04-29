@@ -124,15 +124,15 @@ export function onTextChange(
     const change = classifyChange(entry.lastText, newText);
 
     if (change === "sub") {
-      // End any open run, then check the substitution itself.
-      if (entry.dir !== null && isCrossWord(entry.runStartText, entry.lastText)) {
-        emitLastText(events, entry, p.noteId, io);
-      }
+      // Only break the current run if the substitution itself crosses a
+      // word boundary. Within-word subs (typo corrections, smart-quote
+      // conversions like ' → ') get absorbed silently into the run so they
+      // don't surface as mid-word checkpoints in the event log.
       if (isCrossWord(entry.lastText, newText)) {
         emitLastText(events, entry, p.noteId, io);
+        entry.runStartText = newText;
+        entry.dir = null;
       }
-      entry.runStartText = newText;
-      entry.dir = null;
       entry.lastText = newText;
       continue;
     }
@@ -211,11 +211,16 @@ export function isCrossWord(oldText: string, newText: string): boolean {
   }
   for (let i = 0; i < oldWords.length; i++) {
     if (oldWords[i] === newWords[i]) continue;
-    const overlap = Math.max(
-      commonPrefixLen(oldWords[i], newWords[i]),
-      commonSuffixLen(oldWords[i], newWords[i], 0),
-    );
-    if (overlap < OVERLAP_THRESHOLD) return true;
+    const prefix = commonPrefixLen(oldWords[i], newWords[i]);
+    const suffix = commonSuffixLen(oldWords[i], newWords[i], prefix);
+    // A 1-for-1 char swap inside a word — e.g. "I'm" → "I'm" via smart
+    // quotes, or "abc" → "axc" via a typo — is always within-word, even on
+    // short words where the overlap-based threshold below would call it
+    // cross-word.
+    const oldDiff = oldWords[i].length - prefix - suffix;
+    const newDiff = newWords[i].length - prefix - suffix;
+    if (oldDiff <= 1 && newDiff <= 1) continue;
+    if (Math.max(prefix, suffix) < OVERLAP_THRESHOLD) return true;
   }
   return false;
 }

@@ -635,6 +635,72 @@ describe("substitutions", () => {
       { noteId: "a", text: "xyz" },
     ]);
   });
+
+  it("smart-quote substitution mid-active-add-run is silent", () => {
+    // macOS / Quill replace ' with ' as the user types past an apostrophe.
+    // The change classifies as a sub: prefix runs up to the apostrophe, the
+    // apostrophe itself differs. We must NOT emit the pre-sub state here —
+    // it would be captured mid-word and pollute the event log.
+    const state = createNoteFlushState();
+    const io = makeIO();
+    const { events } = runScenario(
+      [
+        [p("a", "")],
+        [p("a", "Bit of nervous energy but channeling it well, think it's coi")],
+        // Smart-quote conversion replaces the straight apostrophe in "it's"
+        // with a curly one, mid-add-run.
+        [p("a", "Bit of nervous energy but channeling it well, think it’s coi")],
+      ],
+      state,
+      io,
+    );
+    expect(noteUpdates(events)).toEqual([]);
+    expect(noteUpdates(flushAll(state, io).events)).toEqual([
+      {
+        noteId: "a",
+        text: "Bit of nervous energy but channeling it well, think it’s coi",
+      },
+    ]);
+  });
+
+  it("smart-quote substitution on short word (I'm) is silent", () => {
+    // Short word like "I'm" has only 1-char overlap on either side of the
+    // apostrophe, which the overlap threshold alone would treat as cross-
+    // word. The single-char-diff rule keeps it within-word.
+    const state = createNoteFlushState();
+    const io = makeIO();
+    const { events } = runScenario(
+      [
+        [p("a", "")],
+        [p("a", "and I'm sure")],
+        [p("a", "and I’m sure")],
+      ],
+      state,
+      io,
+    );
+    expect(noteUpdates(events)).toEqual([]);
+    expect(noteUpdates(flushAll(state, io).events)).toEqual([
+      { noteId: "a", text: "and I’m sure" },
+    ]);
+  });
+
+  it("autocorrect-style within-word sub mid-typing does not break the run", () => {
+    // User typed "Really good feeling about htis" — autocorrect fires and
+    // changes "htis" → "this". The prior add run is cross-word (vs ""), but
+    // the sub itself is within-word, so the pre-sub state must NOT emit.
+    const state = createNoteFlushState();
+    const io = makeIO();
+    const { events } = runScenario(
+      [
+        [p("a", "")],
+        [p("a", "Really good feeling about htis")],
+        [p("a", "Really good feeling about this")],
+      ],
+      state,
+      io,
+    );
+    expect(noteUpdates(events)).toEqual([]);
+  });
 });
 
 // -- G. Mixed scenarios across multiple notes -----------------------------
