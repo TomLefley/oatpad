@@ -114,7 +114,7 @@
       if (listWobbleTimer) clearTimeout(listWobbleTimer);
       listWobbleTimer = setTimeout(() => {
         listWobbling = false;
-      }, 1100);
+      }, 900);
     });
   });
   const settingsSpacerHeight = $derived(
@@ -429,7 +429,7 @@
      overshoots back through zero and lets it ring out to rest. */
   .list.wobbling .row {
     --amp: max(4px, calc(20px - var(--idx, 0) * 1.6px));
-    animation: listSettle 600ms cubic-bezier(0.32, 1.85, 0.6, 1) backwards;
+    animation: listSettle 440ms cubic-bezier(0.32, 1.85, 0.6, 1) backwards;
     animation-delay: calc(var(--idx, 0) * 22ms);
   }
   @keyframes listSettle {

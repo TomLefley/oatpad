@@ -262,22 +262,23 @@
      anchors the tray (always visible), so we treat it as idx 0 — its
      wobble starts first and the wave radiates outward through the
      icons that get revealed when the sidebar expands. Amplitudes
-     also decay outward, so the leading toggle bounces hardest and
-     the trailing settings cog the least, like a concertina. */
+     decay sharply outward so the cascade reads as a rubber-band
+     unfurling: the leading toggle bounces hardest, the trailing
+     settings cog barely twitches. */
   .toggle-slot {
-    --amp: 5px;
+    --amp: 7px;
     --idx: 0;
   }
   .new-slot {
-    --amp: 4px;
+    --amp: 4.5px;
     --idx: 1;
   }
   .search-slot {
-    --amp: 3.5px;
+    --amp: 2.5px;
     --idx: 2;
   }
   .settings-slot {
-    --amp: 3px;
+    --amp: 1.25px;
     --idx: 3;
   }
   /* Peak at 43% (~180ms — exactly when the drawer's 180ms width transition
