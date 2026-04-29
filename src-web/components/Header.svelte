@@ -123,11 +123,12 @@
           aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
           title={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
         >
-          {#if sidebarCollapsed}
+          <span class="toggle-icon" class:visible={sidebarCollapsed}>
             <PanelLeftOpen size={18} strokeWidth={2} />
-          {:else}
+          </span>
+          <span class="toggle-icon" class:visible={!sidebarCollapsed}>
             <PanelLeftClose size={18} strokeWidth={2} />
-          {/if}
+          </span>
         </button>
       </div>
     </div>
@@ -257,6 +258,31 @@
   .icon-tray {
     display: flex;
     align-items: center;
+  }
+  /* Toggle button stacks both panel-left-open and panel-left-close on
+     top of each other and cross-fades between them so the swap reads
+     as a soft state change instead of a frame-perfect substitution.
+     The slight scale/rotation gives the morph a hint of momentum
+     without making the button feel busy. */
+  .toggle-slot {
+    position: relative;
+  }
+  .toggle-icon {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.78) rotate(-12deg);
+    transition:
+      opacity 180ms ease,
+      transform 240ms cubic-bezier(0.34, 1.5, 0.64, 1);
+    pointer-events: none;
+  }
+  .toggle-icon.visible {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
   }
   /* --amp drives wobble distance; --idx drives the stagger. The toggle
      anchors the tray (always visible), so we treat it as idx 0 — its
