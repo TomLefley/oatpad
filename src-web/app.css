@@ -125,7 +125,7 @@ input[type="text"] {
   line-height: 1.55;
 }
 .ql-editor > * + * {
-  margin-top: 0.875em !important;
+  margin-top: var(--paragraph-gap, 0.875em) !important;
 }
 .ql-editor.ql-blank::before {
   color: var(--muted);

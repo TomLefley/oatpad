@@ -7,6 +7,14 @@
     applyTheme,
     type Theme,
   } from "../lib/theme";
+  import {
+    loadParagraphGap,
+    saveParagraphGap,
+    applyParagraphGap,
+    PARAGRAPH_GAP_MIN,
+    PARAGRAPH_GAP_MAX,
+    PARAGRAPH_GAP_STEP,
+  } from "../lib/paragraphGap";
   import { loadConfig, saveConfig } from "../lib/config";
   import { isNative } from "../lib/platform";
   import Sun from "@lucide/svelte/icons/sun";
@@ -17,6 +25,7 @@
   import BotMessageSquare from "@lucide/svelte/icons/bot-message-square";
 
   let theme = $state<Theme>(loadTheme());
+  let paragraphGap = $state(loadParagraphGap());
   let mcpEnabled = $state(true);
   let mcpInstalled = $state(false);
   let installBusy = $state(false);
@@ -55,6 +64,12 @@
     theme = next;
     saveTheme(next);
     applyTheme(next);
+  }
+
+  function setParagraphGap(next: number): void {
+    paragraphGap = next;
+    applyParagraphGap(next);
+    saveParagraphGap(next);
   }
 
   async function toggleMcp(): Promise<void> {
@@ -141,6 +156,20 @@
         <Moon size={16} strokeWidth={2} />
       </button>
     </div>
+  </div>
+  <div class="row">
+    <span class="label">Paragraph gap</span>
+    <input
+      class="gap-slider"
+      type="range"
+      min={PARAGRAPH_GAP_MIN}
+      max={PARAGRAPH_GAP_MAX}
+      step={PARAGRAPH_GAP_STEP}
+      value={paragraphGap}
+      oninput={(e) => setParagraphGap(Number(e.currentTarget.value))}
+      aria-label="Space between paragraphs"
+      title="{paragraphGap.toFixed(3).replace(/\.?0+$/, '')}em"
+    />
   </div>
   <div class="row">
     <span class="label">MCP server</span>
@@ -234,6 +263,61 @@
   .mcp-btn[disabled] {
     opacity: 0.5;
     cursor: progress;
+  }
+  /* Slim slider styled to sit alongside the icon-button rows. The
+     `appearance: none` baseline strips Chrome/Safari/Firefox's chrome
+     so the track and thumb can be themed with the same accent palette
+     as the rest of the bubble. */
+  .gap-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    width: 110px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .gap-slider::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--fg) 18%, transparent);
+  }
+  .gap-slider::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--fg) 18%, transparent);
+    border: none;
+  }
+  .gap-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    margin-top: -4.5px;
+    transition: transform 120ms ease;
+  }
+  .gap-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    transition: transform 120ms ease;
+  }
+  .gap-slider:hover::-webkit-slider-thumb,
+  .gap-slider:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+  .gap-slider:hover::-moz-range-thumb,
+  .gap-slider:focus-visible::-moz-range-thumb {
+    transform: scale(1.15);
+  }
+  .gap-slider:focus-visible {
+    outline: none;
   }
   .version {
     text-align: center;
