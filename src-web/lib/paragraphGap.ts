@@ -14,10 +14,14 @@ import { isFreshMode } from "./freshMode";
 
 const LS_KEY = "oatpad.paragraphGap";
 
+// Five snap points across the full range. The midpoint (snap 2) lands
+// on Quill's original 0.875em margin so the slider's centre matches the
+// editor's historical default — making the snap pattern feel anchored
+// rather than arbitrary. Step = (MAX - MIN) / 4.
 export const PARAGRAPH_GAP_DEFAULT = 0.875;
 export const PARAGRAPH_GAP_MIN = 0;
 export const PARAGRAPH_GAP_MAX = 1.75;
-export const PARAGRAPH_GAP_STEP = 0.125;
+export const PARAGRAPH_GAP_STEP = 0.4375;
 
 function clamp(em: number): number {
   return Math.min(PARAGRAPH_GAP_MAX, Math.max(PARAGRAPH_GAP_MIN, em));

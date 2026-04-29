@@ -267,12 +267,14 @@
   /* Slim slider styled to sit alongside the icon-button rows. The
      `appearance: none` baseline strips Chrome/Safari/Firefox's chrome
      so the track and thumb can be themed with the same accent palette
-     as the rest of the bubble. */
+     as the rest of the bubble. Width matches the three-icon themes
+     row above (3 × 26 + 2 × 2 gap = 82px) so the controls align
+     vertically. */
   .gap-slider {
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
-    width: 110px;
+    width: 82px;
     height: 18px;
     margin: 0;
     padding: 0;
