@@ -6,6 +6,18 @@ combined with a transcript by an agent.
 
 See [SPEC.md](./SPEC.md) for product requirements.
 
+## Install
+
+Download the latest macOS build from the
+[Releases](https://github.com/TomLefley/oatpad/releases) page (universal `.dmg`
+covering Apple Silicon and Intel). The bundle is unsigned, so the first launch
+needs right-click → Open to bypass Gatekeeper.
+
+To cut a new release, push a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`)
+or run the **Release** workflow manually from the Actions tab. The workflow
+publishes a **draft** release — review the assets, then publish from the GitHub
+UI.
+
 ## Run
 
 Oatpad's primary form is a **Mac native app** — autosaves every meeting to
