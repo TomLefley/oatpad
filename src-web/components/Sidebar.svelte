@@ -86,6 +86,37 @@
   let settingsHeight = $state(96);
   let settingsContentsVisible = $state(false);
   let settingsBubbleEl: HTMLDivElement | undefined = $state();
+
+  // When either bubble closes, the spacer above the meeting list shrinks
+  // smoothly — but the rows themselves just translate as a rigid block.
+  // Adding a per-row settle animation makes them feel like a concertina
+  // collapsing back: each row starts slightly displaced and bounces into
+  // place, with the wave staggering down the list and decaying so the
+  // bottom rows settle quietly. The class is toggled for the animation's
+  // duration; CSS handles the per-row delay/amplitude via --idx.
+  let listWobbling = $state(false);
+  let prevSearchOpen = false;
+  let prevSettingsOpen = false;
+  let listWobbleTimer: ReturnType<typeof setTimeout> | null = null;
+  $effect(() => {
+    const justClosed =
+      (prevSearchOpen && !searchOpen) ||
+      (prevSettingsOpen && !settingsOpen);
+    prevSearchOpen = searchOpen;
+    prevSettingsOpen = settingsOpen;
+    if (!justClosed) return;
+    listWobbling = false;
+    // Force a reflow so re-adding the class the next tick actually
+    // re-triggers the animation when bubbles open/close in quick
+    // succession.
+    requestAnimationFrame(() => {
+      listWobbling = true;
+      if (listWobbleTimer) clearTimeout(listWobbleTimer);
+      listWobbleTimer = setTimeout(() => {
+        listWobbling = false;
+      }, 800);
+    });
+  });
   const settingsSpacerHeight = $derived(
     settingsOpen ? Math.max(48, settingsHeight + SPACER_OVERHEAD) : 0,
   );
@@ -326,11 +357,11 @@
         </div>
       </div>
     {/if}
-    <ul class="list">
-      {#each filteredMeetings as summary (summary.meetingId)}
+    <ul class="list" class:wobbling={listWobbling}>
+      {#each filteredMeetings as summary, i (summary.meetingId)}
         {@const current = store.state.meeting?.meetingId === summary.meetingId}
         {@const label = labelFor(summary.title)}
-        <li class="row" class:current>
+        <li class="row" class:current style:--idx={i}>
           <button
             class="row-main"
             onclick={() => onswitch(summary.meetingId)}
@@ -387,6 +418,27 @@
     margin: 2px 8px;
     padding: 0 4px;
     border-radius: 8px;
+  }
+  /* Per-row settle: rows above the bubble's footprint were rigidly
+     shifted up by the spacer transition; this animation rides on top
+     of that and gives each row a small bounce as it lands. The wave
+     staggers downward so the eye reads it as a concertina folding
+     shut, and both the amplitude and the time spent oscillating
+     decay so deeper rows settle quietly. The starting `--amp`
+     pushes the row downward by amp at t=0, then the spring-bezier
+     overshoots back through zero and lets it ring out to rest. */
+  .list.wobbling .row {
+    --amp: max(2px, calc(10px - var(--idx, 0) * 1.4px));
+    animation: listSettle 520ms cubic-bezier(0.34, 1.55, 0.64, 1) backwards;
+    animation-delay: calc(var(--idx, 0) * 22ms);
+  }
+  @keyframes listSettle {
+    0% {
+      transform: translateY(var(--amp));
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
   .row:not(.current):hover {
     background: color-mix(in srgb, var(--fg) 6%, transparent);
