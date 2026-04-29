@@ -58,9 +58,12 @@
       if (!expanded) {
         collapsing = true;
         if (collapsingTimer) clearTimeout(collapsingTimer);
+        // Hold the class for the full animation window: 600ms duration
+        // plus the longest per-row stagger (idx 3 × 30ms) plus a touch
+        // of slack so the trailing icon's tail oscillation is included.
         collapsingTimer = setTimeout(() => {
           collapsing = false;
-        }, 420);
+        }, 720);
       } else if (collapsingTimer) {
         clearTimeout(collapsingTimer);
         collapsingTimer = null;
@@ -254,29 +257,44 @@
     display: flex;
     align-items: center;
   }
-  .settings-slot {
-    --amp: 3px;
-  }
-  .search-slot {
-    --amp: 3.5px;
+  /* --amp drives wobble distance; --idx drives the stagger. The toggle
+     anchors the tray (always visible), so we treat it as idx 0 — its
+     wobble starts first and the wave radiates outward through the
+     icons that get revealed when the sidebar expands. Amplitudes
+     also decay outward, so the leading toggle bounces hardest and
+     the trailing settings cog the least, like a concertina. */
+  .toggle-slot {
+    --amp: 5px;
+    --idx: 0;
   }
   .new-slot {
     --amp: 4px;
+    --idx: 1;
   }
-  .toggle-slot {
-    --amp: 5px;
+  .search-slot {
+    --amp: 3.5px;
+    --idx: 2;
   }
-  /* Peak at 43% (~180ms — exactly when the drawer's 180ms width transition
-     settles), so the lateral motion is continuous through the handoff. After
-     the peak, two damped oscillations carry the icons back to rest. Per-
-     segment easing uses cubic-bezier(0.4, 0, 0.6, 1), a sine-like S-curve
-     that feels more pendulum than spring.
+  .settings-slot {
+    --amp: 3px;
+    --idx: 3;
+  }
+  /* Peak at 43% (~258ms into a 600ms run), comfortably after the
+     drawer's 180ms width transition settles, so the icons keep
+     moving as if carrying inertia past the drawer's stop. Two damped
+     oscillations then carry them back to rest. Per-segment easing
+     uses cubic-bezier(0.4, 0, 0.6, 1), a sine-like S-curve that feels
+     more pendulum than spring.
 
+     Each icon's animation starts at idx × 30ms, so the wave radiates
+     outward from the toggle (idx 0) — the only icon visible while
+     collapsed — through the icons that are revealed when expanding.
      Direction is driven by the `--dir` custom property: +1 for expand
      (overshoot right), -1 for collapse (overshoot left). */
   .icon-tray.bouncing-in .wobble,
   .icon-tray.bouncing-out .wobble {
-    animation: trayWobble 420ms linear;
+    animation: trayWobble 600ms linear;
+    animation-delay: calc(var(--idx, 0) * 30ms);
   }
   .icon-tray.bouncing-in .wobble {
     --dir: 1;
