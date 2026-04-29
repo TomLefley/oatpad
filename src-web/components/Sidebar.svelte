@@ -10,6 +10,8 @@
   import { labelFor, filterMeetings } from "../lib/meetingFilter";
   import { tick } from "svelte";
   import { slide, scale } from "svelte/transition";
+  import { flip } from "svelte/animate";
+  import { backOut } from "svelte/easing";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Check from "@lucide/svelte/icons/check";
   import Search from "@lucide/svelte/icons/search";
@@ -406,13 +408,21 @@
         {@const current = store.state.meeting?.meetingId === summary.meetingId}
         {@const label = labelFor(summary.title)}
         {@const confirming = confirmingId === summary.meetingId}
-        <li class="row" class:current style:--idx={i}>
+        <li
+          class="row"
+          class:current
+          class:confirming
+          style:--idx={i}
+          animate:flip={{ duration: 320, easing: backOut }}
+        >
           <button
             class="row-main"
             onclick={() => handleSwitch(summary.meetingId)}
-            title={label}
+            title={confirming ? "Click trash again to confirm" : label}
           >
-            <span class="row-label">{label}</span>
+            <span class="row-label">
+              {confirming ? "Confirm delete?" : label}
+            </span>
           </button>
           <!-- The row-main button already provides keyboard access; this
                div is a mouse-only secondary affordance so the timestamp
@@ -421,13 +431,11 @@
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
             class="row-right"
-            class:confirming
             onclick={() => handleSwitch(summary.meetingId)}
           >
             <span class="row-time">{fmtTimestamp(summary.createdAt)}</span>
             <button
               class="row-del"
-              class:confirming
               onclick={(e) => {
                 e.stopPropagation();
                 handleDelete(summary.meetingId);
@@ -548,7 +556,7 @@
   }
   .row-right:hover .row-time,
   .row-right:focus-within .row-time,
-  .row-right.confirming .row-time {
+  .row.confirming .row-time {
     transform: translateX(-30px);
   }
   .row-del {
@@ -569,21 +577,28 @@
   }
   .row-right:hover .row-del,
   .row-right:focus-within .row-del,
-  .row-del.confirming {
+  .row.confirming .row-del {
     opacity: 1;
     transform: translate(0, -50%);
   }
   .row-del:hover {
     color: var(--icon-active);
   }
-  /* Armed-for-deletion state: a sustained red so the icon is
-     unmistakeable as a danger button, paired with the trash→check
-     swap above. The transform/opacity above keeps the icon visible
-     even when the cursor leaves the row, so the user can still see
-     what they armed. */
-  .row-del.confirming,
-  .row-del.confirming:hover {
-    color: #d33;
+  /* Armed-for-deletion state: tint the whole row red so the danger
+     reads at a glance, swap the label to "Confirm delete?", and
+     keep the trash (now a check) visible regardless of hover so the
+     user can see exactly what's about to vanish. */
+  .row.confirming {
+    background: color-mix(in srgb, var(--danger, #d33) 14%, transparent);
+  }
+  .row.confirming.current {
+    background: color-mix(in srgb, var(--danger, #d33) 22%, transparent);
+  }
+  .row.confirming .row-label,
+  .row.confirming .row-time,
+  .row.confirming .row-del,
+  .row.confirming .row-del:hover {
+    color: var(--danger, #d33);
   }
 
   /* Search bubble — mirrors the Quill bubble look. The arrow's right offset

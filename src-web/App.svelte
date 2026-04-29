@@ -49,13 +49,24 @@
     settingsOpen = !settingsOpen;
   }
 
+  // The icon tray needs to clear the macOS traffic lights on its left
+  // (92px of left-col padding) and fit four 32px icon slots with their
+  // gaps and the right margin (~140px). Anything narrower pushes the
+  // settings cog under the traffic light cluster, so we pin the min
+  // a little above that geometric floor.
+  const MIN_W = 260;
+  const MAX_W = 480;
   const LS_SIDEBAR_WIDTH = "oatpad.sidebarWidth";
+  const DEFAULT_SIDEBAR_WIDTH = 280;
   function loadSidebarWidth(): number {
-    if (isFreshMode) return 240;
-    if (typeof localStorage === "undefined") return 240;
+    if (isFreshMode) return DEFAULT_SIDEBAR_WIDTH;
+    if (typeof localStorage === "undefined") return DEFAULT_SIDEBAR_WIDTH;
     const raw = localStorage.getItem(LS_SIDEBAR_WIDTH);
     const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : 240;
+    if (!Number.isFinite(n) || n <= 0) return DEFAULT_SIDEBAR_WIDTH;
+    // Clamp on load too — persisted widths from before the min was
+    // raised would otherwise tuck the cog behind the traffic lights.
+    return Math.min(MAX_W, Math.max(MIN_W, n));
   }
   let sidebarWidth = $state(loadSidebarWidth());
   $effect(() => {
@@ -64,9 +75,6 @@
       localStorage.setItem(LS_SIDEBAR_WIDTH, String(sidebarWidth));
     }
   });
-
-  const MIN_W = 200;
-  const MAX_W = 480;
 
   function startResize(e: MouseEvent): void {
     e.preventDefault();

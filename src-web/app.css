@@ -9,6 +9,7 @@
   --icon: #6a5a42;
   --icon-active: #8b6a3e;
   --link: #6b8fb5;
+  --danger: #b04030;
   --font-sans:
     "Manrope Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, Arial, sans-serif;
@@ -32,6 +33,7 @@
     --icon: #b8a98f;
     --icon-active: #d4b382;
     --link: #9db8d4;
+    --danger: #d57865;
     color-scheme: dark;
   }
 }
@@ -47,6 +49,7 @@
   --icon: #6a5a42;
   --icon-active: #8b6a3e;
   --link: #6b8fb5;
+  --danger: #b04030;
   color-scheme: light;
 }
 
@@ -61,6 +64,7 @@
   --icon: #b8a98f;
   --icon-active: #d4b382;
   --link: #9db8d4;
+  --danger: #d57865;
   color-scheme: dark;
 }
 
