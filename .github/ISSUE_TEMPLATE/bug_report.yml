@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a problem with Oatpad
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See error
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+
+  - type: input
+    id: version
+    attributes:
+      label: Oatpad version
+      description: From the app's About dialog, or the commit/tag you built from.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      options:
+        - Desktop app (Tauri)
+        - Web build
+        - MCP server
+        - Other / not sure
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. macOS 15.2, Windows 11, Ubuntu 24.04
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste any relevant console output or attach screenshots.
