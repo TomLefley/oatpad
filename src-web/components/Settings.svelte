@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
+  import { getVersion } from "@tauri-apps/api/app";
   import {
     loadTheme,
     saveTheme,
@@ -7,6 +8,7 @@
     type Theme,
   } from "../lib/theme";
   import { loadConfig, saveConfig } from "../lib/config";
+  import { isNative } from "../lib/platform";
   import Sun from "@lucide/svelte/icons/sun";
   import Moon from "@lucide/svelte/icons/moon";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
@@ -19,6 +21,7 @@
   let mcpInstalled = $state(false);
   let installBusy = $state(false);
   let installError = $state<string | null>(null);
+  let version = $state<string | null>(null);
 
   // Pull persisted config once on mount. Fail-open defaults mean a fresh
   // install or a missing config file lands on "enabled" + "never installed"
@@ -28,6 +31,16 @@
       mcpEnabled = c.mcpEnabled;
       mcpInstalled = c.mcpInstalled;
     });
+    if (isNative) {
+      void getVersion()
+        .then((v) => {
+          version = v;
+        })
+        .catch(() => {
+          // Web builds and any unexpected failure just hide the version
+          // line — it's a footnote, not load-bearing.
+        });
+    }
   });
 
   function pickTheme(next: Theme): void {
@@ -152,6 +165,9 @@
       </button>
     </div>
   </div>
+  {#if version}
+    <div class="version" aria-label="Oatpad version">v{version}</div>
+  {/if}
 </div>
 
 <style>
@@ -210,5 +226,13 @@
   .mcp-btn[disabled] {
     opacity: 0.5;
     cursor: progress;
+  }
+  .version {
+    text-align: center;
+    font-size: 11px;
+    color: color-mix(in srgb, var(--fg) 45%, transparent);
+    font-variant-numeric: tabular-nums;
+    user-select: text;
+    margin-top: 2px;
   }
 </style>
