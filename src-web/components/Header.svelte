@@ -59,12 +59,12 @@
         collapsing = true;
         if (collapsingTimer) clearTimeout(collapsingTimer);
         // Hold the class for the full animation window: 420ms duration
-        // plus the longest per-icon stagger (idx 3 × 30ms = 90ms) plus
+        // plus the longest per-icon stagger (idx 3 × 45ms = 135ms) plus
         // a touch of slack so the trailing icon's tail oscillation is
         // included.
         collapsingTimer = setTimeout(() => {
           collapsing = false;
-        }, 540);
+        }, 600);
       } else if (collapsingTimer) {
         clearTimeout(collapsingTimer);
         collapsingTimer = null;
@@ -266,19 +266,19 @@
      unfurling: the leading toggle bounces hardest, the trailing
      settings cog barely twitches. */
   .toggle-slot {
-    --amp: 7px;
+    --amp: 9px;
     --idx: 0;
   }
   .new-slot {
-    --amp: 4.5px;
+    --amp: 3.5px;
     --idx: 1;
   }
   .search-slot {
-    --amp: 2.5px;
+    --amp: 1.25px;
     --idx: 2;
   }
   .settings-slot {
-    --amp: 1.25px;
+    --amp: 0.4px;
     --idx: 3;
   }
   /* Peak at 43% (~180ms — exactly when the drawer's 180ms width transition
@@ -295,7 +295,7 @@
   .icon-tray.bouncing-in .wobble,
   .icon-tray.bouncing-out .wobble {
     animation: trayWobble 420ms linear;
-    animation-delay: calc(var(--idx, 0) * 30ms);
+    animation-delay: calc(var(--idx, 0) * 45ms);
   }
   .icon-tray.bouncing-in .wobble {
     --dir: 1;
