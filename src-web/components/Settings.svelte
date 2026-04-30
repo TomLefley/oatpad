@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { getVersion } from "@tauri-apps/api/app";
   import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -77,8 +78,14 @@
           // line — it's a footnote, not load-bearing.
         });
       // Auto-check on mount; if found, auto-download. The user only
-      // explicitly opts in to the relaunch step.
-      void runUpdateCheck();
+      // explicitly opts in to the relaunch step. Wrapped in untrack
+      // because runUpdateCheck() synchronously reads updateState — if
+      // we don't, Svelte tracks that read as a dependency of this
+      // $effect and the catch handler's "back to idle" assignment
+      // re-fires the effect, looping forever.
+      untrack(() => {
+        void runUpdateCheck();
+      });
     }
   });
 
