@@ -98,6 +98,13 @@
   // bottom rows settle quietly. The class is toggled for the animation's
   // duration; CSS handles the per-row delay/amplitude via --idx.
   let listWobbling = $state(false);
+  // INVARIANT: prevSearchOpen/prevSettingsOpen are intentionally NOT $state.
+  // They mirror the previous run's prop values so the effect can detect a
+  // close transition (was-open → now-closed). Promoting them to $state
+  // would make the effect track its own writes and re-fire spuriously.
+  // The effect is guaranteed to run when searchOpen/settingsOpen flip
+  // (those are reactive props), which is the only time we need to update
+  // them — closure-captured plain `let` is the right shape here.
   let prevSearchOpen = false;
   let prevSettingsOpen = false;
   let listWobbleTimer: ReturnType<typeof setTimeout> | null = null;
