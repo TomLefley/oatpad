@@ -156,3 +156,198 @@ describe("initMeeting (native)", () => {
     expect(meetingFiles.size).toBe(0);
   });
 });
+
+describe("switchMeeting (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("loads the requested meeting from disk and clears input markers", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    const b = makeFile("bbb", "Meeting B", "2026-04-27T11:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+    meetingFiles.set(b.meetingId, b);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).toBe("bbb");
+
+    store.noteInput();
+    expect(store.state.firstInputAt).not.toBeNull();
+
+    await store.switchMeeting("aaa");
+
+    expect(store.state.meeting?.meetingId).toBe("aaa");
+    expect(store.state.firstInputAt).toBeNull();
+    expect(store.state.lastInputAt).toBeNull();
+  });
+
+  it("is a no-op when switching to the meeting already in view", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).toBe("aaa");
+
+    // Mark some input then switch to the same meeting; markers must stay.
+    store.noteInput();
+    const before = store.state.firstInputAt;
+    await store.switchMeeting("aaa");
+    expect(store.state.firstInputAt).toBe(before);
+  });
+
+  it("flushes pending autosave to disk before switching", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    const b = makeFile("bbb", "Meeting B", "2026-04-27T11:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+    meetingFiles.set(b.meetingId, b);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).toBe("bbb");
+
+    // Edit the title — a debounced autosave is now pending.
+    store.setTitle("Meeting B (renamed)");
+    expect(meetingFiles.get("bbb")?.title).toBe("Meeting B");
+
+    // Switch should flush the pending save before loading A.
+    await store.switchMeeting("aaa");
+    expect(meetingFiles.get("bbb")?.title).toBe("Meeting B (renamed)");
+  });
+
+  it("ignores unknown meeting ids and leaves state intact", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    await store.switchMeeting("does-not-exist");
+    expect(store.state.meeting?.meetingId).toBe("aaa");
+  });
+});
+
+describe("setNotetaker (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("updates store + meeting and triggers a debounced disk write", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.notetaker).toBe("tester");
+
+    store.setNotetaker("alice");
+    expect(store.state.notetaker).toBe("alice");
+    expect(store.state.meeting?.notetaker).toBe("alice");
+
+    await store.flushPersist();
+    expect(meetingFiles.get("aaa")?.notetaker).toBe("alice");
+  });
+
+  it("updates the standalone notetaker even when no meeting is open", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    store.setNotetaker("bob");
+    expect(store.state.notetaker).toBe("bob");
+    // No meeting on disk to write — the standalone setter just records.
+    expect(meetingFiles.size).toBe(0);
+  });
+});
+
+describe("replaceMeetingFromFile (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("appends a file_loaded event and persists the meeting", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    const incoming = makeFile("ccc", "Imported", "2026-04-26T09:00:00.000Z");
+
+    store.replaceMeetingFromFile(incoming);
+
+    expect(store.state.meeting?.meetingId).toBe("ccc");
+    const events = store.state.meeting?.events ?? [];
+    expect(events.at(-1)?.type).toBe("file_loaded");
+
+    await store.flushPersist();
+    const onDisk = meetingFiles.get("ccc");
+    expect(onDisk).toBeDefined();
+    expect(onDisk?.events.at(-1)?.type).toBe("file_loaded");
+  });
+
+  it("preserves the existing notetaker rather than adopting the file's", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    store.setNotetaker("alice");
+    const incoming = makeFile("ccc", "Imported", "2026-04-26T09:00:00.000Z");
+    incoming.notetaker = "someone-else";
+
+    store.replaceMeetingFromFile(incoming);
+
+    expect(store.state.notetaker).toBe("alice");
+    expect(store.state.meeting?.notetaker).toBe("alice");
+  });
+
+  it("adopts the file's notetaker when none is set locally", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.notetaker).toBe("");
+    const incoming = makeFile("ccc", "Imported", "2026-04-26T09:00:00.000Z");
+    incoming.notetaker = "carol";
+
+    store.replaceMeetingFromFile(incoming);
+
+    expect(store.state.notetaker).toBe("carol");
+    expect(store.state.meeting?.notetaker).toBe("carol");
+  });
+
+  it("clears live input markers", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    store.noteInput();
+    expect(store.state.firstInputAt).not.toBeNull();
+
+    const incoming = makeFile("ccc", "Imported", "2026-04-26T09:00:00.000Z");
+    store.replaceMeetingFromFile(incoming);
+
+    expect(store.state.firstInputAt).toBeNull();
+    expect(store.state.lastInputAt).toBeNull();
+  });
+});
+
+describe("flushPersist (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("writes the current meeting to disk synchronously, cancelling the debounce", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-27T10:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    store.setTitle("Renamed");
+    // Title is in memory but the debounced write hasn't fired yet.
+    expect(meetingFiles.get("aaa")?.title).toBe("Meeting A");
+
+    await store.flushPersist();
+    expect(meetingFiles.get("aaa")?.title).toBe("Renamed");
+  });
+
+  it("is a no-op when there is no meeting in view", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    await store.flushPersist();
+    expect(meetingFiles.size).toBe(0);
+  });
+});
