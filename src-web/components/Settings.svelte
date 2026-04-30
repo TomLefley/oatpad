@@ -58,6 +58,11 @@
   let updateState = $state<UpdateState>("idle");
   let pendingUpdate: Update | null = null;
   let pendingVersion = $state<string | null>(null);
+  // True only when there is an in-flight check the user is watching —
+  // either they clicked the button, or they clicked it after a silent
+  // background check had already started. Spinner visibility hangs off
+  // this flag so background activity stays invisible.
+  let userInitiatedCheck = $state(false);
 
   // Pull persisted config once on mount. Fail-open defaults mean a fresh
   // install or a missing config file lands on "enabled" + "never installed"
@@ -77,12 +82,12 @@
           // Web builds and any unexpected failure just hide the version
           // line — it's a footnote, not load-bearing.
         });
-      // Auto-check on mount; if found, auto-download. The user only
-      // explicitly opts in to the relaunch step. Wrapped in untrack
-      // because runUpdateCheck() synchronously reads updateState — if
-      // we don't, Svelte tracks that read as a dependency of this
-      // $effect and the catch handler's "back to idle" assignment
-      // re-fires the effect, looping forever.
+      // Background auto-check on every Settings mount. Cheap and
+      // silent — `userInitiatedCheck` stays false, so the spinner
+      // doesn't show. Wrapped in untrack because runUpdateCheck()
+      // synchronously reads updateState — without it, Svelte tracks
+      // that read as a dependency and the catch handler's "back to
+      // idle" assignment re-fires the effect, looping forever.
       untrack(() => {
         void runUpdateCheck();
       });
@@ -152,7 +157,7 @@
     const minSpin = new Promise<void>((r) => setTimeout(r, MIN_SPIN_MS));
     try {
       const update = await check({ timeout: CHECK_TIMEOUT_MS });
-      await minSpin;
+      if (userInitiatedCheck) await minSpin;
       if (!update) {
         updateState = "idle";
         return;
@@ -163,11 +168,16 @@
       await update.download(undefined, { timeout: DOWNLOAD_TIMEOUT_MS });
       updateState = "ready";
     } catch (e) {
-      await minSpin;
+      if (userInitiatedCheck) await minSpin;
       console.error("[oatpad updater]", e);
       updateState = "idle";
       pendingUpdate = null;
       pendingVersion = null;
+    } finally {
+      // The spinner only matters while the activity is visible.
+      // Resetting here covers both "user clicked, check finished" and
+      // "user joined a bg check that then finished".
+      userInitiatedCheck = false;
     }
   }
 
@@ -187,28 +197,38 @@
   function onUpdateButtonClick(): void {
     if (updateState === "ready") {
       void restartToUpdate();
-    } else {
+      return;
+    }
+    // Either start a fresh check, or just promote an in-flight
+    // background check to a visible one (so the spinner appears from
+    // here on out without spawning a duplicate request).
+    userInitiatedCheck = true;
+    if (updateState === "idle") {
       void runUpdateCheck();
     }
   }
 
-  const updateBusy = $derived(
-    updateState === "checking" ||
-      updateState === "downloading" ||
-      updateState === "restarting",
+  // Spinner only animates when the user is watching — background
+  // auto-checks stay invisible.
+  const spinning = $derived(
+    userInitiatedCheck &&
+      (updateState === "checking" || updateState === "downloading"),
   );
+  // Disable the button when there's user-visible activity (avoid
+  // double-clicks) or while restart is in flight.
+  const updateBusy = $derived(spinning || updateState === "restarting");
   const updateLabel = $derived(
     updateState === "ready" ? "Restart to update" : "Check for updates",
   );
   const updateTitle = $derived(
-    updateState === "checking"
-      ? "Checking…"
-      : updateState === "downloading"
-        ? "Downloading update…"
-        : updateState === "ready"
-          ? `Restart to install v${pendingVersion}`
-          : updateState === "restarting"
-            ? "Restarting…"
+    updateState === "ready"
+      ? `Restart to install v${pendingVersion}`
+      : updateState === "restarting"
+        ? "Restarting…"
+        : spinning && updateState === "downloading"
+          ? "Downloading update…"
+          : spinning
+            ? "Checking…"
             : "Check for updates",
   );
 
@@ -335,7 +355,7 @@
           {#if updateState === "ready"}
             <RotateCw size={16} strokeWidth={2} />
           {:else}
-            <span class="icon-wrap" class:spin={updateBusy}>
+            <span class="icon-wrap" class:spin={spinning}>
               <RefreshCw size={16} strokeWidth={2} />
             </span>
           {/if}
