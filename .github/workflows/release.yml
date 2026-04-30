@@ -48,6 +48,18 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri updater signing (minisign) — verifies the .app.tar.gz
+          # bundle the in-app updater downloads. See README "Updates".
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS code signing (Apple) — `tauri-action` decodes the
+          # base64 .p12 into a temporary keychain, runs codesign, then
+          # nukes the keychain. Required so Santa-managed installs and
+          # the in-app updater's relaunch step both see a stable
+          # signing identity.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           tagName: ${{ steps.tag.outputs.name }}
           releaseName: 'Oatpad ${{ steps.tag.outputs.name }}'

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { getVersion } from "@tauri-apps/api/app";
+  import { check, type Update } from "@tauri-apps/plugin-updater";
+  import { relaunch } from "@tauri-apps/plugin-process";
   import {
     loadTheme,
     saveTheme,
@@ -23,6 +25,8 @@
   import Bot from "@lucide/svelte/icons/bot";
   import BotOff from "@lucide/svelte/icons/bot-off";
   import BotMessageSquare from "@lucide/svelte/icons/bot-message-square";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
   let theme = $state<Theme>(loadTheme());
   let paragraphGap = $state(loadParagraphGap());
@@ -37,6 +41,22 @@
   // `{...}` object literal — silently re-enabling an explicitly-disabled
   // server, or wiping the sticky install marker.
   let configLoaded = $state(false);
+
+  // Updater state machine:
+  //   idle        — no check yet, or last check found nothing
+  //   checking    — check() in flight
+  //   downloading — update found, bytes streaming
+  //   ready       — downloaded, awaiting user-triggered install + relaunch
+  //   restarting  — install + relaunch in flight (button disabled)
+  type UpdateState =
+    | "idle"
+    | "checking"
+    | "downloading"
+    | "ready"
+    | "restarting";
+  let updateState = $state<UpdateState>("idle");
+  let pendingUpdate: Update | null = null;
+  let pendingVersion = $state<string | null>(null);
 
   // Pull persisted config once on mount. Fail-open defaults mean a fresh
   // install or a missing config file lands on "enabled" + "never installed"
@@ -56,6 +76,9 @@
           // Web builds and any unexpected failure just hide the version
           // line — it's a footnote, not load-bearing.
         });
+      // Auto-check on mount; if found, auto-download. The user only
+      // explicitly opts in to the relaunch step.
+      void runUpdateCheck();
     }
   });
 
@@ -103,6 +126,73 @@
       installBusy = false;
     }
   }
+
+  // Single entry point for both the auto-check on mount and the manual
+  // "Check for updates" button click. Failures (offline, unsigned dev
+  // bundle, malformed latest.json) drop us back to `idle` silently —
+  // there's no foreground UI to error into.
+  async function runUpdateCheck(): Promise<void> {
+    if (!isNative) return;
+    if (updateState !== "idle") return;
+    updateState = "checking";
+    try {
+      const update = await check();
+      if (!update) {
+        updateState = "idle";
+        return;
+      }
+      pendingUpdate = update;
+      pendingVersion = update.version;
+      updateState = "downloading";
+      await update.download();
+      updateState = "ready";
+    } catch {
+      updateState = "idle";
+      pendingUpdate = null;
+      pendingVersion = null;
+    }
+  }
+
+  async function restartToUpdate(): Promise<void> {
+    if (!pendingUpdate) return;
+    updateState = "restarting";
+    try {
+      await pendingUpdate.install();
+      await relaunch();
+    } catch {
+      // Install failed; back to "ready" so the user can retry. The
+      // downloaded bundle is still cached by the plugin.
+      updateState = "ready";
+    }
+  }
+
+  function onUpdateButtonClick(): void {
+    if (updateState === "ready") {
+      void restartToUpdate();
+    } else {
+      void runUpdateCheck();
+    }
+  }
+
+  const updateBusy = $derived(
+    updateState === "checking" ||
+      updateState === "downloading" ||
+      updateState === "restarting",
+  );
+  const updateLabel = $derived(
+    updateState === "ready" ? "Restart to update" : "Check for updates",
+  );
+  const updateTitle = $derived(
+    updateState === "checking"
+      ? "Checking…"
+      : updateState === "downloading"
+        ? "Downloading update…"
+        : updateState === "ready"
+          ? `Restart to install v${pendingVersion}`
+          : updateState === "restarting"
+            ? "Restarting…"
+            : "Check for updates",
+  );
 
   const installLabel = $derived(
     mcpInstalled
@@ -202,8 +292,43 @@
       </button>
     </div>
   </div>
+  {#if isNative}
+    <div class="row">
+      <span class="label">Updates</span>
+      <div class="update-actions">
+        <button
+          class="update-btn"
+          class:active={updateState === "ready"}
+          onclick={onUpdateButtonClick}
+          aria-label={updateLabel}
+          title={updateTitle}
+          disabled={updateBusy}
+        >
+          {#if updateState === "ready"}
+            <RotateCw size={16} strokeWidth={2} />
+          {:else}
+            <RefreshCw
+              size={16}
+              strokeWidth={2}
+              class={updateBusy ? "spin" : ""}
+            />
+          {/if}
+        </button>
+      </div>
+    </div>
+  {/if}
   {#if version}
-    <div class="version" aria-label="Oatpad version">v{version}</div>
+    <div
+      class="version"
+      class:available={updateState === "ready" && pendingVersion}
+      aria-label="Oatpad version"
+    >
+      {#if updateState === "ready" && pendingVersion}
+        v{pendingVersion} available!
+      {:else}
+        v{version}
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -226,12 +351,14 @@
     user-select: none;
   }
   .theme-picker,
-  .mcp-actions {
+  .mcp-actions,
+  .update-actions {
     display: inline-flex;
     gap: 2px;
   }
   .theme-btn,
-  .mcp-btn {
+  .mcp-btn,
+  .update-btn {
     all: unset;
     display: inline-flex;
     align-items: center;
@@ -246,23 +373,35 @@
       background-color 120ms ease;
   }
   .theme-btn:hover,
-  .mcp-btn:hover {
+  .mcp-btn:hover,
+  .update-btn:hover {
     color: var(--accent);
     background: color-mix(in srgb, var(--fg) 10%, transparent);
   }
   .theme-btn:focus-visible,
-  .mcp-btn:focus-visible {
+  .mcp-btn:focus-visible,
+  .update-btn:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
   }
   .theme-btn.active,
-  .mcp-btn.active {
+  .mcp-btn.active,
+  .update-btn.active {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 18%, transparent);
   }
-  .mcp-btn[disabled] {
+  .mcp-btn[disabled],
+  .update-btn[disabled] {
     opacity: 0.5;
     cursor: progress;
+  }
+  .update-btn :global(.spin) {
+    animation: oatpad-update-spin 1s linear infinite;
+  }
+  @keyframes oatpad-update-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   /* Slim slider styled to sit alongside the icon-button rows. The
      `appearance: none` baseline strips Chrome/Safari/Firefox's chrome
@@ -328,5 +467,9 @@
     font-variant-numeric: tabular-nums;
     user-select: text;
     margin-top: 2px;
+  }
+  .version.available {
+    color: var(--accent);
+    font-weight: 600;
   }
 </style>

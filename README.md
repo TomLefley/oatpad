@@ -16,7 +16,37 @@ needs right-click → Open to bypass Gatekeeper.
 To cut a new release, push a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`)
 or run the **Release** workflow manually from the Actions tab. The workflow
 publishes a **draft** release — review the assets, then publish from the GitHub
-UI.
+UI. Each release uploads three signed assets that the in-app updater consumes:
+the `.app.tar.gz` bundle, its `.sig` file, and `latest.json`.
+
+## Updates
+
+Once installed, Oatpad checks GitHub Releases on launch and silently
+downloads any newer build. The settings bubble shows the current version
+and a refresh button; when an update is staged the version line flips to
+**vX.Y.Z available!** and the button becomes **Restart to update**.
+
+### One-time signing-key setup
+
+The Tauri updater rejects unsigned bundles. Before the first signed release
+you (the maintainer) must generate a keypair and wire it into CI:
+
+1. Generate the keypair locally — pick a passphrase when prompted:
+
+   ```sh
+   npm run tauri signer generate -- -w ~/.tauri/oatpad.key
+   ```
+
+2. Copy the printed **public key** into `src/tauri.conf.json` at
+   `plugins.updater.pubkey` (replacing the `REPLACE_WITH_…` placeholder)
+   and commit it.
+3. Add two repository secrets at GitHub → Settings → Secrets → Actions:
+   - `TAURI_SIGNING_PRIVATE_KEY` — contents of `~/.tauri/oatpad.key`
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the passphrase
+
+After that, every tagged release is signed automatically and existing
+installs will discover it on next launch. Keep the private key file backed
+up — losing it means breaking updates for every existing install.
 
 ## Run
 
