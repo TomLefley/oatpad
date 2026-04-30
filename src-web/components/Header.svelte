@@ -24,6 +24,11 @@
     ontogglesearch?: () => void;
     settingsOpen?: boolean;
     ontogglesettings?: () => void;
+    // Notification dots. Each dot only appears when the bubble it
+    // refers to is closed — once the bubble is open the user can see
+    // the underlying state directly and the dot is just clutter.
+    searchHasFilter?: boolean;
+    updateReady?: boolean;
   };
   let {
     onnew,
@@ -36,7 +41,11 @@
     ontogglesearch,
     settingsOpen = false,
     ontogglesettings,
+    searchHasFilter = false,
+    updateReady = false,
   }: Props = $props();
+  const showSearchDot = $derived(searchHasFilter && !searchOpen);
+  const showSettingsDot = $derived(updateReady && !settingsOpen);
 
   // Hide the title on the Getting Started view — it lives in the centred
   // hero there instead.
@@ -95,9 +104,12 @@
             onclick={ontogglesettings}
             aria-label="Settings"
             aria-expanded={settingsOpen}
-            title="Settings"
+            title={showSettingsDot ? "Settings — update ready" : "Settings"}
           >
             <Settings size={18} strokeWidth={2} />
+            {#if showSettingsDot}
+              <span class="dot" aria-hidden="true"></span>
+            {/if}
           </button>
           <button
             class="icon-btn wobble search-slot"
@@ -105,9 +117,14 @@
             onclick={ontogglesearch}
             aria-label="Search meetings"
             aria-expanded={searchOpen}
-            title="Search meetings"
+            title={showSearchDot
+              ? "Search meetings — filter active"
+              : "Search meetings"}
           >
             <Search size={18} strokeWidth={2} />
+            {#if showSearchDot}
+              <span class="dot" aria-hidden="true"></span>
+            {/if}
           </button>
           <button
             class="icon-btn wobble new-slot"
@@ -235,6 +252,7 @@
     gap: 4px;
   }
   .icon-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -246,6 +264,32 @@
   .icon-btn:hover,
   .icon-btn.active {
     color: var(--icon-active);
+  }
+  /* Notification dot — pinned to the icon's top-right and tinted accent
+     so it pops without competing with the glyph for the eye. The pop-in
+     animation plays once on mount, which means it also plays when the
+     dot remounts (e.g. on close-with-filter) — a quiet "look here". */
+  .dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 1.5px var(--surface);
+    pointer-events: none;
+    animation: dot-pop 220ms cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
+  }
+  @keyframes dot-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
   .icon-tray {
     display: flex;

@@ -144,4 +144,14 @@ export class UpdaterMachine {
   get busy(): boolean {
     return this.spinning || this.state === "restarting";
   }
+
+  // Test-only: clear all observable state plus the private pending handle
+  // so resetForTest() in updaterInstance.svelte.ts can present a fresh
+  // machine to each test.
+  reset(): void {
+    this.state = "idle";
+    this.pendingVersion = null;
+    this.userInitiatedCheck = false;
+    this.#pending = null;
+  }
 }

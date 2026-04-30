@@ -242,23 +242,35 @@ describe("Sidebar — search bubble", () => {
     expect(cal?.classList.contains("active")).toBe(true);
   });
 
-  it("closing the search bubble resets back to text mode", async () => {
+  it("preserves date mode and the selected date across close/reopen", async () => {
     const { container, rerender } = await mountSidebar({ searchOpen: true });
-    // Switch to date mode.
+    // Switch to date mode and pick a day.
     const calendarBtn = container.querySelector(
       'button[aria-label="Filter by date"]',
     ) as HTMLButtonElement;
     await fireEvent.click(calendarBtn);
     await tick();
     expect(container.querySelector(".cal")?.classList.contains("active")).toBe(true);
+    const cell = container.querySelector(".cal-cell:not(.empty)") as HTMLButtonElement;
+    expect(cell).not.toBeNull();
+    const ymd = cell.getAttribute("aria-label");
+    await fireEvent.click(cell);
+    await tick();
+    expect(
+      container.querySelector(`.cal-cell.selected[aria-label="${ymd}"]`),
+    ).not.toBeNull();
 
-    // Close, then re-open — should be back in text mode.
+    // Close, then re-open — date mode and the selection must survive so
+    // the user can come back to a filter they intentionally left behind.
     await rerender({ collapsed: false, width: 280, onswitch: vi.fn(), ondelete: vi.fn(), searchOpen: false });
     await tick();
     await rerender({ collapsed: false, width: 280, onswitch: vi.fn(), ondelete: vi.fn(), searchOpen: true });
     await tick();
-    expect(container.querySelector(".text-row")?.classList.contains("active")).toBe(true);
-    expect(container.querySelector(".cal")?.classList.contains("active")).toBe(false);
+    expect(container.querySelector(".cal")?.classList.contains("active")).toBe(true);
+    expect(container.querySelector(".text-row")?.classList.contains("active")).toBe(false);
+    expect(
+      container.querySelector(`.cal-cell.selected[aria-label="${ymd}"]`),
+    ).not.toBeNull();
   });
 });
 

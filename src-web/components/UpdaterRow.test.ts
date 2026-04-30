@@ -7,6 +7,12 @@ import { tick } from "svelte";
 
 // UpdaterRow's machine logic is unit-tested in lib/updater.test.ts. The
 // component test verifies the *rendering* of the machine's state.
+//
+// The machine and version-fetching now live in lib/updaterInstance.svelte
+// (so the header's update-ready dot can read it before the settings
+// bubble is ever opened). That means each test resets the singleton via
+// resetForTest() and drives initUpdater() itself — mounting the row no
+// longer triggers the boot-time check.
 
 type CheckResult =
   | null
@@ -38,23 +44,29 @@ vi.mock("../lib/platform", () => ({
   },
 }));
 
-beforeEach(() => {
+beforeEach(async () => {
   isNativeFlag = true;
   getVersion.mockReset().mockResolvedValue("1.2.3");
   tauriCheck.mockReset().mockResolvedValue(null);
   tauriRelaunch.mockReset();
+  const { resetForTest } = await import("../lib/updaterInstance.svelte");
+  resetForTest();
 });
 
 async function settle(): Promise<void> {
-  // Multiple microtasks because: $effect → getVersion().then → setState →
-  // $effect re-run → machine.runCheck → check() → setState …
+  // Multiple microtasks because: initUpdater → getVersion().then → setState →
+  // machine.runCheck → check() → setState …
   for (let i = 0; i < 6; i++) {
     await Promise.resolve();
     await tick();
   }
 }
 
-async function mountUpdaterRow() {
+async function mountUpdaterRow({ init = true }: { init?: boolean } = {}) {
+  if (init) {
+    const { initUpdater } = await import("../lib/updaterInstance.svelte");
+    initUpdater();
+  }
   const UpdaterRow = (await import("./UpdaterRow.svelte")).default;
   const result = render(UpdaterRow);
   await settle();
@@ -69,11 +81,13 @@ describe("UpdaterRow rendering", () => {
         release = r;
       }),
     );
+    const { initUpdater } = await import("../lib/updaterInstance.svelte");
+    initUpdater();
     const { container } = render(
       (await import("./UpdaterRow.svelte")).default,
     );
-    // The version-row is gated on `version` being non-null. Before
-    // resolution, no .version-row is rendered.
+    // The version-row is gated on `versionState.value` being non-null.
+    // Before resolution, no .version-row is rendered.
     expect(container.querySelector(".version-row")).toBeNull();
     release("1.0.0");
     await settle();
@@ -105,7 +119,13 @@ describe("UpdaterRow rendering", () => {
   it("hides the update button entirely on web (isNative=false)", async () => {
     isNativeFlag = false;
     getVersion.mockResolvedValueOnce("1.0.0");
-    const { container } = await mountUpdaterRow();
+    // Force the version state directly — initUpdater() short-circuits in
+    // web mode, so without this the row wouldn't render at all and the
+    // assertion would degenerate to "no .version-row exists" rather than
+    // "no .update-btn inside the row".
+    const { versionState } = await import("../lib/updaterInstance.svelte");
+    versionState.value = "1.0.0";
+    const { container } = await mountUpdaterRow({ init: false });
     expect(container.querySelector("button.update-btn")).toBeNull();
   });
 

@@ -120,7 +120,16 @@
     out:scale={{ duration: 100 }}
     onanimationend={() => {
       contentsVisible = true;
-      if (searchMode === "text") searchInputEl?.focus();
+      // Focus a sensible target so Escape reaches the bubble's keydown
+      // handler without the user having to click first. In text mode the
+      // input is the obvious target; in date mode (e.g. when reopening
+      // with a previously-applied date filter) we focus the bubble shell
+      // itself.
+      if (searchMode === "text") {
+        searchInputEl?.focus();
+      } else {
+        bubbleEl?.focus({ preventScroll: true });
+      }
     }}
     onkeydown={handleKeydown}
     role="dialog"

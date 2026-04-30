@@ -16,6 +16,10 @@
     oncloseSearch?: () => void;
     settingsOpen?: boolean;
     oncloseSettings?: () => void;
+    // Bindable; true whenever a non-default search filter is in effect
+    // (text query OR a picked date). The header reads this to draw the
+    // notification dot on the search icon when the bubble is closed.
+    searchActive?: boolean;
   };
   let {
     collapsed,
@@ -26,27 +30,23 @@
     oncloseSearch,
     settingsOpen = false,
     oncloseSettings,
+    searchActive = $bindable(false),
   }: Props = $props();
 
   // Search filter state lives here so it survives the bubble's mount/unmount
-  // cycle (the bubble's body lives behind {#if searchOpen} so it can outro).
-  // Reset semantics match the original effect: searchMode/selectedDate/
-  // viewMonth reset on close so a mid-outro reopen lands in text mode at
-  // the current month; searchQuery is intentionally preserved across opens.
+  // cycle (the bubble's body lives behind {#if searchOpen} so it can outro)
+  // — and so it survives a full close/reopen cycle. The bubble is a control
+  // surface; the filter it represents is part of the sidebar's state.
   let searchMode = $state<SearchMode>("text");
   let searchQuery = $state("");
   let selectedDate = $state<string | null>(null);
   let viewMonth = $state(monthStart(new Date()));
-  $effect(() => {
-    if (!searchOpen) {
-      searchMode = "text";
-      selectedDate = null;
-      viewMonth = monthStart(new Date());
-    }
-  });
   const filteredMeetings = $derived(
     filterMeetings(store.state.meetings, searchMode, searchQuery, selectedDate),
   );
+  $effect(() => {
+    searchActive = searchQuery !== "" || selectedDate !== null;
+  });
 
   // Both bubbles measure their content height; the spacer above the list is
   // the larger of the two so the meeting list slides clear regardless of

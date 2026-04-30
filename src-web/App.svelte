@@ -8,6 +8,18 @@
   import { saveFile, loadFile } from "./lib/file";
   import { isNative } from "./lib/platform";
   import { isFreshMode } from "./lib/freshMode";
+  import { initUpdater, updater } from "./lib/updaterInstance.svelte";
+
+  // Kick off the boot-time update check (and version fetch) here rather
+  // than from inside UpdaterRow.svelte, so the header's update-ready dot
+  // can light up before the user has ever opened the settings bubble.
+  // initUpdater() is idempotent and short-circuits in web mode.
+  $effect(() => {
+    initUpdater();
+  });
+
+  const updateReady = $derived(updater.state === "ready");
+  let searchHasFilter = $state(false);
 
   let editor: Editor | undefined = $state();
   // Start collapsed when there's nothing in the sidebar to show — first launch
@@ -180,6 +192,8 @@
     ontogglesearch={openSearch}
     {settingsOpen}
     ontogglesettings={openSettings}
+    {searchHasFilter}
+    {updateReady}
   />
   <div class="body">
     {#if isNative}
@@ -192,6 +206,7 @@
         oncloseSearch={() => (searchOpen = false)}
         {settingsOpen}
         oncloseSettings={() => (settingsOpen = false)}
+        bind:searchActive={searchHasFilter}
       />
     {/if}
     <div class="main">

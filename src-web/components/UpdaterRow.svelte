@@ -1,109 +1,56 @@
 <script lang="ts">
-  import { getVersion } from "@tauri-apps/api/app";
-  import { check, type Update } from "@tauri-apps/plugin-updater";
-  import { relaunch } from "@tauri-apps/plugin-process";
   import { isNative } from "../lib/platform";
-  import {
-    UpdaterMachine,
-    type UpdateHandle,
-  } from "../lib/updater.svelte";
+  import { updater, versionState } from "../lib/updaterInstance.svelte";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
-  let version = $state<string | null>(null);
-
-  // Wrap the Tauri plugin's check() into the UpdaterMachine's UpdateHandle
-  // shape — the machine doesn't know about Tauri, only about the trio of
-  // operations (download, install) it needs.
-  function tauriCheck(timeoutMs: number): Promise<UpdateHandle | null> {
-    return check({ timeout: timeoutMs }).then((u: Update | null) =>
-      u
-        ? {
-            version: u.version,
-            download: (t: number) => u.download(undefined, { timeout: t }),
-            install: () => u.install(),
-          }
-        : null,
-    );
-  }
-
-  const machine = new UpdaterMachine(
-    {
-      check: tauriCheck,
-      relaunch,
-      delay: (ms) => new Promise<void>((r) => setTimeout(r, ms)),
-      log: (msg, err) => console.error(msg, err),
-    },
-    {
-      checkTimeoutMs: 30_000,
-      downloadTimeoutMs: 5 * 60_000,
-      minSpinMs: 500,
-    },
-  );
-
-  // The `initialized` flag pins this to a single mount-time run.
-  // runCheck() reads and writes machine.state, so a naive $effect would
-  // track that and re-fire on every transition.
-  let initialized = false;
-  $effect(() => {
-    if (initialized) return;
-    initialized = true;
-    if (!isNative) return;
-    void getVersion()
-      .then((v) => {
-        version = v;
-      })
-      .catch(() => {
-        // Web builds and any unexpected failure just hide the version
-        // line — it's a footnote, not load-bearing.
-      });
-    // Background auto-check on every mount. Cheap and silent —
-    // userInitiatedCheck stays false, so the spinner doesn't show.
-    void machine.runCheck();
-  });
+  // The machine and the auto-check live in updaterInstance.svelte — that
+  // way the header's "update ready" dot can read the machine's state even
+  // before the settings bubble has ever been opened. This component is now
+  // purely the rendering surface for the same singleton.
 
   const updateLabel = $derived(
-    machine.state === "ready" ? "Restart to update" : "Check for updates",
+    updater.state === "ready" ? "Restart to update" : "Check for updates",
   );
   const updateTitle = $derived(
-    machine.state === "ready"
-      ? `Restart to install v${machine.pendingVersion}`
-      : machine.state === "restarting"
+    updater.state === "ready"
+      ? `Restart to install v${updater.pendingVersion}`
+      : updater.state === "restarting"
         ? "Restarting…"
-        : machine.spinning && machine.state === "downloading"
+        : updater.spinning && updater.state === "downloading"
           ? "Downloading update…"
-          : machine.spinning
+          : updater.spinning
             ? "Checking…"
             : "Check for updates",
   );
 </script>
 
-{#if version}
+{#if versionState.value}
   <div class="version-row">
     <span
       class="version"
-      class:available={machine.state === "ready" && machine.pendingVersion}
+      class:available={updater.state === "ready" && updater.pendingVersion}
       aria-label="Oatpad version"
     >
-      {#if machine.state === "ready" && machine.pendingVersion}
-        v{machine.pendingVersion} available!
+      {#if updater.state === "ready" && updater.pendingVersion}
+        v{updater.pendingVersion} available!
       {:else}
-        v{version}
+        v{versionState.value}
       {/if}
     </span>
     {#if isNative}
       <button
         class="update-btn"
-        class:active={machine.state === "ready"}
-        onclick={() => machine.click()}
+        class:active={updater.state === "ready"}
+        onclick={() => updater.click()}
         aria-label={updateLabel}
         title={updateTitle}
-        disabled={machine.busy}
+        disabled={updater.busy}
       >
-        {#if machine.state === "ready"}
+        {#if updater.state === "ready"}
           <RotateCw size={16} strokeWidth={2} />
         {:else}
-          <span class="icon-wrap" class:spin={machine.spinning}>
+          <span class="icon-wrap" class:spin={updater.spinning}>
             <RefreshCw size={16} strokeWidth={2} />
           </span>
         {/if}

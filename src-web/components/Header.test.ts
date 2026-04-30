@@ -43,6 +43,8 @@ async function mountHeader(props: {
   ontogglesearch?: () => void;
   settingsOpen?: boolean;
   ontogglesettings?: () => void;
+  searchHasFilter?: boolean;
+  updateReady?: boolean;
 } = {}) {
   const Header = (await import("./Header.svelte")).default;
   const result = render(Header, {
@@ -210,6 +212,66 @@ describe("Header — native mode tray", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("search icon shows a notification dot when a filter is active and the bubble is closed", async () => {
+    const { container, rerender } = await mountHeader({
+      sidebarCollapsed: false,
+      searchOpen: false,
+      searchHasFilter: true,
+    });
+    const searchBtn = container.querySelector(
+      'button[aria-label="Search meetings"]',
+    ) as HTMLButtonElement;
+    expect(searchBtn.querySelector(".dot")).not.toBeNull();
+    expect(searchBtn.title).toMatch(/filter active/);
+
+    // Opening the bubble drops the dot — the bubble itself is now showing
+    // the user the same information.
+    await rerender({
+      onnew: vi.fn(),
+      onopen: vi.fn(),
+      onsave: vi.fn(),
+      sidebarCollapsed: false,
+      searchOpen: true,
+      searchHasFilter: true,
+    });
+    await tick();
+    expect(searchBtn.querySelector(".dot")).toBeNull();
+  });
+
+  it("settings icon shows a notification dot when an update is ready and the bubble is closed", async () => {
+    const { container, rerender } = await mountHeader({
+      sidebarCollapsed: false,
+      settingsOpen: false,
+      updateReady: true,
+    });
+    const settingsBtn = container.querySelector(
+      'button[aria-label="Settings"]',
+    ) as HTMLButtonElement;
+    expect(settingsBtn.querySelector(".dot")).not.toBeNull();
+    expect(settingsBtn.title).toMatch(/update ready/);
+
+    // Opening settings hides the dot.
+    await rerender({
+      onnew: vi.fn(),
+      onopen: vi.fn(),
+      onsave: vi.fn(),
+      sidebarCollapsed: false,
+      settingsOpen: true,
+      updateReady: true,
+    });
+    await tick();
+    expect(settingsBtn.querySelector(".dot")).toBeNull();
+  });
+
+  it("renders no dots when neither signal is set", async () => {
+    const { container } = await mountHeader({
+      sidebarCollapsed: false,
+      searchHasFilter: false,
+      updateReady: false,
+    });
+    expect(container.querySelectorAll(".dot")).toHaveLength(0);
   });
 
   it("toggle / search / settings buttons fire their respective callbacks", async () => {
