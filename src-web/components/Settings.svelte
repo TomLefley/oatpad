@@ -425,7 +425,7 @@
   .mcp-btn[disabled],
   .update-btn[disabled] {
     opacity: 0.5;
-    cursor: progress;
+    cursor: default;
   }
   .icon-wrap {
     display: inline-flex;
