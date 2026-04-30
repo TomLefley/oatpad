@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
   import { isNative, isWeb } from "../lib/platform";
+  import IconButton from "./IconButton.svelte";
   import ThemeToggle from "./ThemeToggle.svelte";
   import MeetingMeta from "./MeetingMeta.svelte";
   import OatpadTitle from "./OatpadTitle.svelte";
@@ -144,30 +145,15 @@
     <div class="spacer"></div>
     <div class="actions">
       <ThemeToggle />
-      <button
-        class="icon-btn"
-        onclick={onnew}
-        aria-label="New meeting"
-        title="New meeting"
-      >
+      <IconButton onclick={onnew} label="New meeting">
         <CalendarPlus size={18} strokeWidth={2} />
-      </button>
-      <button
-        class="icon-btn"
-        onclick={onopen}
-        aria-label="Open file"
-        title="Open file"
-      >
+      </IconButton>
+      <IconButton onclick={onopen} label="Open file">
         <FolderOpen size={18} strokeWidth={2} />
-      </button>
-      <button
-        class="icon-btn"
-        onclick={onsave}
-        aria-label="Save file"
-        title="Save file"
-      >
+      </IconButton>
+      <IconButton onclick={onsave} label="Save file">
         <Save size={18} strokeWidth={2} />
-      </button>
+      </IconButton>
     </div>
   {/if}
 </header>
