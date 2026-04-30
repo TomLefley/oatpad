@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   applyParagraphIds,
   getBlockElements,
+  readNoteIds,
   readParagraphs,
   reconcileNoteIds,
 } from "./paragraphs";
@@ -110,6 +111,19 @@ describe("readParagraphs", () => {
     root.innerHTML = "<p>orphan</p>";
     const out = readParagraphs(root);
     expect(out[0]?.noteId).toBe("");
+  });
+});
+
+describe("readNoteIds", () => {
+  it("returns one id per block in document order", () => {
+    root.innerHTML =
+      '<p data-note-id="a">x</p><p data-note-id="b">y</p><p data-note-id="c">z</p>';
+    expect(readNoteIds(root)).toEqual(["a", "b", "c"]);
+  });
+
+  it("uses an empty string for blocks missing the data attribute", () => {
+    root.innerHTML = '<p data-note-id="a">x</p><p>orphan</p>';
+    expect(readNoteIds(root)).toEqual(["a", ""]);
   });
 });
 

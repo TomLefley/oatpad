@@ -3,11 +3,16 @@
   import X from "@lucide/svelte/icons/x";
 
   type Props = {
-    targetSelector: string;
+    // A getter so the call site doesn't need to keep a stale ref alive —
+    // the Coachmark resolves the element on mount and caches it for the
+    // bubble's lifetime. Passing the element (vs. a string selector)
+    // keeps the lookup at the call site, where multi-instance concerns
+    // can be settled deliberately.
+    getTarget: () => HTMLElement | null;
     text: string;
     ondismiss: () => void;
   };
-  let { targetSelector, text, ondismiss }: Props = $props();
+  let { getTarget, text, ondismiss }: Props = $props();
 
   let bodyEl: HTMLDivElement | undefined = $state();
   let left = $state(0);
@@ -17,8 +22,9 @@
   // this we'd briefly paint at (0, 0) before the layout kicks in.
   let positioned = $state(false);
 
+  let target: HTMLElement | null = null;
+
   function updatePosition(): void {
-    const target = document.querySelector(targetSelector) as HTMLElement | null;
     if (!target || !bodyEl) return;
     const tr = target.getBoundingClientRect();
     const br = bodyEl.getBoundingClientRect();
@@ -33,26 +39,32 @@
     positioned = true;
   }
 
-  let rafId: number | null = null;
-  function loop(): void {
-    updatePosition();
-    rafId = requestAnimationFrame(loop);
-  }
-
   onMount(() => {
+    target = getTarget();
     updatePosition();
-    // Repaint each frame so the bubble follows the target through sidebar
-    // resizes, window resizes, and any other layout shifts. getBoundingClientRect
-    // is cheap enough that 60fps is fine for the brief lifetime of a coachmark.
-    rafId = requestAnimationFrame(loop);
+
+    // Reposition only when something that could move the target actually
+    // happens. ResizeObserver fires when the target's own box changes
+    // (sidebar resize narrows the header's right column, header layout
+    // shifts as the user types into the name input). window.resize covers
+    // viewport changes. Together they're orders of magnitude cheaper than
+    // a 60fps RAF loop and stop running the moment nothing is changing.
+    const onResize = (): void => updatePosition();
+    let resizeObs: ResizeObserver | null = null;
+    if (target && typeof ResizeObserver !== "undefined") {
+      resizeObs = new ResizeObserver(onResize);
+      resizeObs.observe(target);
+    }
+    window.addEventListener("resize", onResize);
+
     // Dismiss the moment the user engages with the target — by then the
     // prompt has done its job and a bubble hovering over an active input
     // would just be noise.
-    const target = document.querySelector(targetSelector) as HTMLElement | null;
     const onTargetFocus = (): void => ondismiss();
     if (target) target.addEventListener("focus", onTargetFocus);
     return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      resizeObs?.disconnect();
+      window.removeEventListener("resize", onResize);
       if (target) target.removeEventListener("focus", onTargetFocus);
     };
   });

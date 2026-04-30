@@ -184,13 +184,29 @@
   async function restartToUpdate(): Promise<void> {
     if (!pendingUpdate) return;
     updateState = "restarting";
+    // Two awaits, two distinct failure modes: install can fail (bundle
+    // corrupt, FS permission, plugin error) but if it succeeds the new
+    // build is on disk and re-running install would either no-op or
+    // double-write. Distinguish them so a relaunch failure doesn't
+    // strand the user on a "Restart to update" button that would
+    // attempt to install again.
     try {
       await pendingUpdate.install();
-      await relaunch();
-    } catch {
-      // Install failed; back to "ready" so the user can retry. The
-      // downloaded bundle is still cached by the plugin.
+    } catch (e) {
+      console.error("[oatpad updater] install failed", e);
       updateState = "ready";
+      return;
+    }
+    try {
+      await relaunch();
+    } catch (e) {
+      // Install succeeded — the next launch will already be the new
+      // version. Drop the in-memory pendingUpdate so the button reverts
+      // to "Check for updates" rather than re-prompting a restart.
+      console.error("[oatpad updater] relaunch failed", e);
+      pendingUpdate = null;
+      pendingVersion = null;
+      updateState = "idle";
     }
   }
 

@@ -7,6 +7,7 @@
     reconcileNoteIds,
     applyParagraphIds,
     readParagraphs,
+    readNoteIds,
   } from "../lib/paragraphs";
   import { matchInline } from "../lib/markdownShortcuts";
   import {
@@ -41,10 +42,9 @@
 
   function persistSnapshot(): void {
     if (!quill) return;
-    const paragraphs = readParagraphs(quill.root);
     store.setSnapshot(
       quill.getContents() as unknown as QuillDelta,
-      paragraphs.map((p) => p.noteId),
+      readNoteIds(quill.root),
     );
   }
 
@@ -180,11 +180,15 @@
     activeNoteId = null;
   }
 
-  function addToolbarTooltips(root: HTMLElement): void {
-    const toolbar = root.parentElement?.querySelector(
-      ".ql-toolbar, .ql-tooltip.ql-toolbar, .ql-bubble .ql-tooltip",
-    );
-    if (!toolbar) return;
+  // Returns true if it found a toolbar to decorate. The bubble theme
+  // mounts the toolbar inside `.ql-tooltip` synchronously during
+  // `new Quill()`, but a defensive retry on first selection-change
+  // means we still cover any future Quill change that delays the
+  // tooltip until first use. Idempotent — safe to call repeatedly.
+  function addToolbarTooltips(root: HTMLElement): boolean {
+    const toolbar = root.querySelector(".ql-toolbar, .ql-tooltip");
+    if (!toolbar) return false;
+    if (!toolbar.querySelector(".ql-bold, .ql-italic, .ql-header")) return false;
     const mod = isMac() ? "⌘" : "Ctrl";
     const titles: Record<string, string> = {
       ".ql-bold": `Bold (${mod}+B)`,
@@ -207,10 +211,16 @@
       const v = item.getAttribute("data-value");
       item.title = v ? `Heading ${v}` : "Normal text";
     });
+    return true;
   }
 
   function isMac(): boolean {
-    return /Mac|iPhone|iPad/.test(navigator.platform);
+    type NavigatorWithUAData = Navigator & {
+      userAgentData?: { platform?: string };
+    };
+    const nav = navigator as NavigatorWithUAData;
+    const platform = nav.userAgentData?.platform || navigator.platform || "";
+    return /Mac|iPhone|iPad/.test(platform);
   }
 
   onMount(() => {
@@ -233,12 +243,21 @@
     });
 
     quill.root.setAttribute("aria-label", "Meeting notes");
-    addToolbarTooltips(container);
+    let tooltipsAttached = addToolbarTooltips(container);
 
     reload();
 
     quill.on("text-change", handleTextChange);
-    quill.on("selection-change", handleSelectionChange);
+    quill.on("selection-change", (range) => {
+      // The bubble theme has the toolbar in the DOM from construction, but
+      // belt-and-braces: if we missed it on mount (e.g. a future Quill
+      // version delays the build), pick it up now that the user has made a
+      // selection — the tooltip is guaranteed to exist by then.
+      if (!tooltipsAttached && container) {
+        tooltipsAttached = addToolbarTooltips(container);
+      }
+      handleSelectionChange(range);
+    });
     quill.root.addEventListener("blur", handleBlur);
   });
 

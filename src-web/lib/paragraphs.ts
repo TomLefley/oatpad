@@ -39,3 +39,13 @@ export function readParagraphs(root: HTMLElement): Paragraph[] {
   }));
 }
 
+// Lightweight read for the snapshot path: only the noteIds, no markdown
+// conversion. The snapshot only needs the id ordering — paying the
+// DOMPurify + Turndown cost on every keystroke for 50+ paragraphs is
+// strictly waste.
+export function readNoteIds(root: HTMLElement): string[] {
+  return getBlockElements(root).map(
+    (block) => block.getAttribute(DATA_ATTR) ?? "",
+  );
+}
+

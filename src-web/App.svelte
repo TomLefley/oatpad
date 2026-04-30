@@ -210,7 +210,10 @@
   {/if}
   {#if showCoachmark}
     <Coachmark
-      targetSelector="[data-coachmark-target='notetaker']"
+      getTarget={() =>
+        document.querySelector<HTMLElement>(
+          "[data-coachmark-target='notetaker']",
+        )}
       text="Don't forget to add your name!"
       ondismiss={() => (coachmarkDismissed = true)}
     />
