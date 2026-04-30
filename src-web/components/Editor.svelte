@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import Quill from "quill";
-  import type { QuillDelta } from "../lib/types";
+  import type { OatsEvent, QuillDelta } from "../lib/types";
   import { uuid } from "../lib/ids";
   import {
     reconcileNoteIds,
@@ -36,7 +36,7 @@
     now: () => new Date().toISOString(),
   };
 
-  function emit(events: ReturnType<typeof onTextChange>["events"]): void {
+  function emit(events: OatsEvent[]): void {
     if (events.length > 0) store.appendEvents(events);
   }
 
