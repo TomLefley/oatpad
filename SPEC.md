@@ -55,17 +55,11 @@ Each edit must record:
 - The wall clock timestamp at which the edit was made
 - A reference to the note it is revising
 
-### 4. The output links notes to the transcript's recording
-
-The notes output must include a reference to the specific recording it was taken against. This allows the agent to confirm it is combining the correct transcript with the correct notes.
-
-The recording identifier should come from the recording itself, not be manually entered by the notetaker.
-
-### 5. The output preserves the full sequence of events
+### 4. The output preserves the full sequence of events
 
 The notes output is an ordered record of what happened: notes written, edits made, in the sequence they occurred. This ordering must be preserved in the output. The agent uses this sequence to understand how the notetaker's perception evolved across the conversation.
 
-### 6. The output must be machine-readable
+### 5. The output must be machine-readable
 
 The notes output is consumed by an AI agent, not read by a human. It must be structured and unambiguous. Plain prose or unstructured text files are not acceptable outputs.
 
@@ -76,7 +70,7 @@ The format must support:
 
 The exact format (JSON, etc.) is an implementation decision, but it must be consistent and parseable without ambiguity.
 
-### 7. Multiple notetakers must remain distinct
+### 6. Multiple notetakers must remain distinct
 
 If two notetakers independently take notes on the same meeting, their outputs must remain separate — they should not be merged into a single notes file. The agent needs to know which observations came from which person, because two people in the same meeting can have different interpretations, and that disagreement is itself useful information.
 
@@ -105,4 +99,4 @@ The notes output is fit for purpose if an AI agent, given only the notes output 
 1. For any note, identify the transcript segment most likely being referenced — without the notetaker having explicitly linked them.
 2. Reconstruct the sequence in which the notetaker's views developed across the conversation.
 3. Identify notes that changed, and what portion of the conversation elapsed between the original and the revision.
-4. Correctly attribute observations to the right recording session, and — where multiple notetakers exist — to the right person.
+4. Where multiple notetakers exist, correctly attribute observations to the right person.
