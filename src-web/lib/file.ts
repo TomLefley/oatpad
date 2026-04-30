@@ -275,6 +275,14 @@ function isSafeUrl(u: string): boolean {
   return /^(https?:|mailto:|tel:|\/|#|\?)/i.test(u.trim());
 }
 
+// Detach an OatsFile from any Svelte $state proxy it might be wrapping.
+// JSON round-trip rather than structuredClone — structuredClone trips on
+// proxy internals; the on-disk path already JSON-serializes, so this
+// keeps the in-memory and on-disk shapes equivalent.
+export function cloneOatsFile(file: OatsFile): OatsFile {
+  return JSON.parse(JSON.stringify(file)) as OatsFile;
+}
+
 export function suggestedFileBase(file: Pick<OatsFile, "title" | "createdAt">): string {
   const name = file.title.trim() || "meeting";
   // Replace characters that break common file systems with a space.

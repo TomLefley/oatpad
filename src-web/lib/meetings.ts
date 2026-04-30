@@ -8,21 +8,13 @@ import {
   writeTextFile,
 } from "@tauri-apps/plugin-fs";
 import type { OatsFile } from "./types";
-import { parseOatsFile } from "./file";
+import { cloneOatsFile, parseOatsFile } from "./file";
 import { isFreshMode } from "./freshMode";
 
 // Fresh mode keeps meetings in memory only — writes don't hit disk and reads
 // come back from this map. The session behaves normally; nothing leaks across
 // a relaunch.
 const memCache = new Map<string, OatsFile>();
-
-// JSON round-trip rather than structuredClone — the input is typically a
-// Svelte $state proxy (state.meeting wrapped via toOatsFileFrom), and
-// structuredClone trips on proxy internals. JSON-cloning is what the on-disk
-// path already does, so the in-memory shape stays equivalent.
-function detach(file: OatsFile): OatsFile {
-  return JSON.parse(JSON.stringify(file)) as OatsFile;
-}
 
 /*
  * Native meeting persistence — one `.oats` file per meeting, living in
@@ -89,7 +81,7 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
 export async function loadMeeting(id: string): Promise<OatsFile | null> {
   if (isFreshMode) {
     const cached = memCache.get(id);
-    return cached ? detach(cached) : null;
+    return cached ? cloneOatsFile(cached) : null;
   }
   try {
     const text = await readTextFile(meetingPath(id), { baseDir: BASE_DIR });
@@ -101,7 +93,7 @@ export async function loadMeeting(id: string): Promise<OatsFile | null> {
 
 export async function saveMeeting(file: OatsFile): Promise<void> {
   if (isFreshMode) {
-    memCache.set(file.meetingId, detach(file));
+    memCache.set(file.meetingId, cloneOatsFile(file));
     return;
   }
   await ensureDir();
