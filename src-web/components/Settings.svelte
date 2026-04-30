@@ -141,12 +141,18 @@
   // back to `idle` and surfaces in the console for diagnosis.
   const CHECK_TIMEOUT_MS = 30_000;
   const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
+  // A fast cache hit can return in <100ms, which makes the spinner
+  // strobe rather than spin. Floor the animation at MIN_SPIN_MS so
+  // there's always at least half a turn visible.
+  const MIN_SPIN_MS = 500;
   async function runUpdateCheck(): Promise<void> {
     if (!isNative) return;
     if (updateState !== "idle") return;
     updateState = "checking";
+    const minSpin = new Promise<void>((r) => setTimeout(r, MIN_SPIN_MS));
     try {
       const update = await check({ timeout: CHECK_TIMEOUT_MS });
+      await minSpin;
       if (!update) {
         updateState = "idle";
         return;
@@ -157,6 +163,7 @@
       await update.download(undefined, { timeout: DOWNLOAD_TIMEOUT_MS });
       updateState = "ready";
     } catch (e) {
+      await minSpin;
       console.error("[oatpad updater]", e);
       updateState = "idle";
       pendingUpdate = null;
