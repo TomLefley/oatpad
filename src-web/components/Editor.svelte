@@ -89,6 +89,23 @@
     noteFlushState = seedNoteFlushState(readParagraphs(quill.root));
     activeNoteId = null;
     suppressCommit = false;
+    clearStaleEditorSelection();
+  }
+
+  // setContents leaves a native selection inside .ql-editor. If focus
+  // isn't on the editor (e.g. boot, or a meeting switch driven by a
+  // sidebar-row click), macOS WKWebView paints a faded "inactive caret"
+  // at the top-left of the editor that lingers until the next focus
+  // change — and reappears as a greyed-out twin caret the moment the
+  // user clicks anywhere else in the editor area. Drop the selection so
+  // there's no caret until something is actually focused.
+  function clearStaleEditorSelection(): void {
+    if (!quill) return;
+    if (document.activeElement === quill.root) return;
+    const nativeSel = window.getSelection();
+    if (nativeSel && quill.root.contains(nativeSel.anchorNode)) {
+      nativeSel.removeAllRanges();
+    }
   }
 
   function getLineDomNode(line: unknown): HTMLElement | null {
