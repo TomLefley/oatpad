@@ -7,7 +7,7 @@ import {
   readNoteIds,
   readParagraphs,
   reconcileNoteIds,
-} from "./paragraphs";
+} from "./quillParagraphs";
 
 function makeIdFactory(): () => string {
   let n = 0;

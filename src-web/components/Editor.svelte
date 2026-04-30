@@ -8,7 +8,7 @@
     applyParagraphIds,
     readParagraphs,
     readNoteIds,
-  } from "../lib/paragraphs";
+  } from "../lib/quillParagraphs";
   import { matchInline } from "../lib/markdownShortcuts";
   import {
     createNoteFlushState,

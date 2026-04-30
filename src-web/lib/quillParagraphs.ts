@@ -1,3 +1,8 @@
+// Block-element helpers shaped around Quill's bubble-theme DOM:
+// "block elements are direct children of root" (i.e. of the editor's
+// `.ql-editor`). The functions are unit-testable in isolation but the
+// assumption isn't editor-agnostic — any other rich-text editor that
+// nests blocks differently would need a different reader.
 import type { Paragraph } from "./types";
 import { htmlToMarkdown } from "./markdown";
 import { assignUniqueIds } from "./noteIds";
