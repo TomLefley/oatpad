@@ -19,6 +19,44 @@
   font-weight: 400;
   color: var(--fg);
   background: var(--bg);
+
+  /* Header / sidebar layout atoms. The native icon tray must clear the
+     macOS traffic-light cluster on its left and fit four 32px icon slots
+     plus gaps + paddings on its right. The bubbles in Sidebar.svelte
+     position their arrows by deriving offsets from these atoms — all the
+     hand-derived px values in the sibling components flow from here.
+     Changing any atom propagates to:
+       - Header.svelte (.left-col, .icon-btn, .expanded-icons)
+       - Sidebar.svelte (.search-arrow, .settings-arrow, .{search,settings}-bubble)
+       - App.svelte's MIN_W floor */
+  --icon-size: 32px;
+  --icon-gap: 4px;
+  --traffic-light-clearance: 92px;
+  --tray-padding-right: 12px;
+  --expanded-icons-margin-right: 4px;
+  --bubble-margin: 12px;
+  --bubble-arrow-half: 6px;
+
+  /* Distance from the sidebar's right edge to the centre of each icon
+     in the expanded tray, going right-to-left through the slots. The
+     bubble arrows position themselves relative to the icon they point
+     at by subtracting the bubble's right margin and the arrow's half-
+     width from these centres. */
+  --tray-toggle-center: calc(
+    var(--tray-padding-right) + var(--icon-size) / 2
+  );
+  --tray-new-center: calc(
+    var(--tray-toggle-center) + var(--icon-size) / 2
+    + var(--expanded-icons-margin-right) + var(--icon-size) / 2
+  );
+  --tray-search-center: calc(
+    var(--tray-new-center) + var(--icon-size) / 2
+    + var(--icon-gap) + var(--icon-size) / 2
+  );
+  --tray-settings-center: calc(
+    var(--tray-search-center) + var(--icon-size) / 2
+    + var(--icon-gap) + var(--icon-size) / 2
+  );
 }
 
 @media (prefers-color-scheme: dark) {

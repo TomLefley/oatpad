@@ -181,13 +181,18 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 10px 12px 10px 92px;
+    padding: 10px var(--tray-padding-right) 10px var(--traffic-light-clearance);
     background: var(--surface);
     box-sizing: border-box;
     transition:
       width 180ms ease,
       background-color 180ms ease;
-    width: 136px;
+    /* Collapsed: room for the toggle icon + L/R paddings, plus the
+       traffic-light clearance above. Computes to 136px with current
+       atoms (32 + 12 + 92). */
+    width: calc(
+      var(--icon-size) + var(--tray-padding-right) + var(--traffic-light-clearance)
+    );
     align-self: stretch;
     overflow: hidden;
   }
@@ -202,7 +207,7 @@
   }
   .expanded-icons {
     display: flex;
-    gap: 4px;
+    gap: var(--icon-gap);
     overflow: hidden;
     width: 0;
     margin: 0;
@@ -213,9 +218,10 @@
       margin 180ms ease,
       opacity 180ms ease;
   }
+  /* Three icons (settings, search, new) plus two gaps. */
   .left-col.expanded .expanded-icons {
-    width: 104px;
-    margin-right: 4px;
+    width: calc(3 * var(--icon-size) + 2 * var(--icon-gap));
+    margin-right: var(--expanded-icons-margin-right);
     opacity: 1;
     pointer-events: auto;
   }
@@ -233,8 +239,8 @@
     align-items: center;
     justify-content: center;
     padding: 6px;
-    width: 32px;
-    height: 32px;
+    width: var(--icon-size);
+    height: var(--icon-size);
     color: var(--icon);
   }
   .icon-btn:hover,

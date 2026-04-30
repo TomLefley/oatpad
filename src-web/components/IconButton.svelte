@@ -36,8 +36,8 @@
     align-items: center;
     justify-content: center;
     padding: 6px;
-    width: 32px;
-    height: 32px;
+    width: var(--icon-size);
+    height: var(--icon-size);
     color: var(--icon);
   }
   .icon-btn:hover,

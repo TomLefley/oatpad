@@ -50,10 +50,12 @@
   }
 
   // The icon tray needs to clear the macOS traffic lights on its left
-  // (92px of left-col padding) and fit four 32px icon slots with their
-  // gaps and the right margin (~140px). Anything narrower pushes the
-  // settings cog under the traffic light cluster, so we pin the min
-  // a little above that geometric floor.
+  // (--traffic-light-clearance, 92px in app.css) and fit four icon slots
+  // with their gaps and right margin (~140px). Anything narrower pushes
+  // the settings cog under the traffic-light cluster, so we pin the min
+  // a little above that geometric floor. The atoms in app.css are the
+  // single source of truth for the geometry; this number is hand-set to
+  // sit comfortably above the computed floor.
   const MIN_W = 260;
   const MAX_W = 480;
   const LS_SIDEBAR_WIDTH = "oatpad.sidebarWidth";

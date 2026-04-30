@@ -616,18 +616,11 @@
   }
 
   /* Search bubble — mirrors the Quill bubble look. The arrow's right offset
-     is computed from the icon-tray geometry in Header.svelte:
-       12px (left-col padding-right)
-     +  32px (toggle-slot)
-     +   4px (expanded-icons margin-right)
-     +  32px (new-slot)
-     +   4px (gap)
-     +  16px (half search-slot width)
-     = 100px from the sidebar's right edge.
-     The bubble's right margin is 12px, so the arrow's centre sits 88px from
-     the bubble's right edge — i.e. its right border at 82px.
-     The wrap holds the layout space so the list slides smoothly to make
-     room; the bubble inside pops in with a brief scale + fade. */
+     is computed from the icon-tray geometry in Header.svelte. The atoms
+     (--icon-size, --icon-gap, --tray-padding-right, etc.) live in app.css
+     and own the source-of-truth values. The wrap holds the layout space
+     so the list slides smoothly to make room; the bubble inside pops in
+     with a brief scale + fade. */
   /* Height is set inline from activeContentHeight + the bubble/body's
      fixed overhead, and 0 when the search is closed. The CSS transition
      smooths every change with the same overshoot bezier the bubble's
@@ -649,7 +642,9 @@
     position: relative;
     padding-top: 6px;
     /* Pop emanates from just below the search icon, where the arrow sits. */
-    transform-origin: calc(100% - 88px) 0;
+    transform-origin: calc(
+      100% - (var(--tray-search-center) - var(--bubble-margin))
+    ) 0;
     /* The entry uses a CSS animation rather than a Svelte transition because
        Svelte applies tick(0) on requestAnimationFrame, leaving one frame
        where the bubble paints at its natural (full) size — that's the
@@ -682,32 +677,28 @@
   .search-arrow {
     position: absolute;
     top: 0;
-    right: 82px;
+    right: calc(
+      var(--tray-search-center) - var(--bubble-margin) - var(--bubble-arrow-half)
+    );
     width: 0;
     height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid var(--bubble-bg);
+    border-left: var(--bubble-arrow-half) solid transparent;
+    border-right: var(--bubble-arrow-half) solid transparent;
+    border-bottom: var(--bubble-arrow-half) solid var(--bubble-bg);
   }
   /* Settings bubble's arrow sits over the cog (the leftmost icon in the
-     expanded tray). Position derived the same way as .search-arrow:
-       12px (left-col padding-right)
-     +  32px (toggle-slot)
-     +   4px (expanded-icons margin-right)
-     +  32px (new-slot)
-     +   4px (gap)
-     +  32px (search-slot)
-     +   4px (gap)
-     +  16px (half settings-slot width)
-     = 136px from sidebar's right edge.
-     Bubble's right margin is 12px and the arrow's apex sits 6px in from
-     its right edge — so right: 136 - 12 - 6 = 118px. */
+     expanded tray) — same derivation as .search-arrow but using
+     --tray-settings-center. */
   .settings-arrow {
-    right: 118px;
+    right: calc(
+      var(--tray-settings-center) - var(--bubble-margin) - var(--bubble-arrow-half)
+    );
   }
   .settings-bubble {
     /* Pop emanates from just below the cog. */
-    transform-origin: calc(100% - 124px) 0;
+    transform-origin: calc(
+      100% - (var(--tray-settings-center) - var(--bubble-margin))
+    ) 0;
   }
   .settings-body {
     padding: 8px 12px 10px;
