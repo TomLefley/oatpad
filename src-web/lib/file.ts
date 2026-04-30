@@ -213,17 +213,20 @@ export function parseOatsFile(text: string): OatsFile {
   };
 }
 
-const EVENT_TYPES = new Set([
-  "meeting_started",
-  "note_created",
-  "note_updated",
-  "note_deleted",
-  "file_loaded",
-]);
+// Keyed by every OatsEvent variant — TS errors here if the union grows
+// but this map isn't updated, which keeps validateEvent's allowlist in
+// lockstep with the type.
+const EVENT_TYPE_NAMES: Record<OatsEvent["type"], true> = {
+  meeting_started: true,
+  note_created: true,
+  note_updated: true,
+  note_deleted: true,
+  file_loaded: true,
+};
 
 function validateEvent(raw: unknown): OatsEvent {
   if (!isObject(raw)) throw new Error("not an object");
-  if (typeof raw.type !== "string" || !EVENT_TYPES.has(raw.type)) {
+  if (typeof raw.type !== "string" || !(raw.type in EVENT_TYPE_NAMES)) {
     throw new Error(`unknown type: ${String(raw.type)}`);
   }
   if (typeof raw.id !== "string") throw new Error("missing id");

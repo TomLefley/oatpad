@@ -9,6 +9,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { OatsFile } from "../../shared/oats-format";
+
+export type { OatsFile };
 
 const APP_ID = "dev.lefley.oatpad";
 
@@ -48,17 +51,6 @@ export type MeetingSummary = {
   displayName: string;
   createdAt: string;
   notetaker: string;
-};
-
-export type OatsFile = {
-  version: 1;
-  meetingId: string;
-  notetaker: string;
-  title: string;
-  createdAt: string;
-  events: unknown[];
-  snapshot: { ops: unknown[] };
-  paragraphIds: string[];
 };
 
 export function isOatsFile(v: unknown): v is OatsFile {

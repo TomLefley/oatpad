@@ -58,6 +58,12 @@ export function replay(events: OatsEvent[]): MeetingState {
       }
       case "file_loaded":
         break;
+      default: {
+        // Type-level exhaustiveness check — adding a new OatsEvent variant
+        // without a case here is a compile error.
+        const _exhaustive: never = event;
+        void _exhaustive;
+      }
     }
   }
 

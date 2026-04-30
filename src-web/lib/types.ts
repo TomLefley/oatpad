@@ -1,67 +1,17 @@
-export type MeetingStartedEvent = {
-  type: "meeting_started";
-  id: string;
-  ts: string;
-  notetaker: string;
-};
-
-export type NoteCreatedEvent = {
-  type: "note_created";
-  id: string;
-  ts: string;
-  noteId: string;
-};
-
-export type NoteUpdatedEvent = {
-  type: "note_updated";
-  id: string;
-  ts: string;
-  noteId: string;
-  text: string;
-};
-
-export type NoteDeletedEvent = {
-  type: "note_deleted";
-  id: string;
-  ts: string;
-  noteId: string;
-};
-
-export type FileLoadedEvent = {
-  type: "file_loaded";
-  id: string;
-  ts: string;
-  sourceTitle: string;
-};
-
-export type OatsEvent =
-  | MeetingStartedEvent
-  | NoteCreatedEvent
-  | NoteUpdatedEvent
-  | NoteDeletedEvent
-  | FileLoadedEvent;
-
-export type QuillDeltaOp = {
-  insert?: string | Record<string, unknown>;
-  delete?: number;
-  retain?: number | Record<string, unknown>;
-  attributes?: Record<string, unknown>;
-};
-
-export type QuillDelta = {
-  ops: QuillDeltaOp[];
-};
-
-export type OatsFile = {
-  version: 1;
-  meetingId: string;
-  notetaker: string;
-  title: string;
-  createdAt: string;
-  events: OatsEvent[];
-  snapshot: QuillDelta;
-  paragraphIds: string[];
-};
+// Re-export the on-disk schema from the shared module so src-web and the
+// MCP server can't drift on the file format. In-memory shapes that aren't
+// part of the file format (e.g. Paragraph) stay local to src-web.
+export type {
+  FileLoadedEvent,
+  MeetingStartedEvent,
+  NoteCreatedEvent,
+  NoteDeletedEvent,
+  NoteUpdatedEvent,
+  OatsEvent,
+  OatsFile,
+  QuillDelta,
+  QuillDeltaOp,
+} from "../../shared/oats-format";
 
 export type Paragraph = {
   noteId: string;
