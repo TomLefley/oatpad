@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
   import { editBounds, phaseFor, type Phase } from "../lib/meetingPhase";
+  import { LOCALE } from "../lib/locale";
 
   const createdAt = $derived(store.state.meeting?.createdAt);
 
@@ -44,7 +45,7 @@
   function fmt(iso: string): string {
     const d = new Date(iso);
     return d
-      .toLocaleString("en-GB", {
+      .toLocaleString(LOCALE, {
         day: "numeric",
         month: "short",
         hour: "2-digit",

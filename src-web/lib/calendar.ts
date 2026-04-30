@@ -2,6 +2,8 @@
 // non-trivial month/grid/timestamp logic is unit-testable without mounting
 // a Svelte component.
 
+import { LOCALE } from "./locale";
+
 export function monthStart(d: Date): Date {
   const x = new Date(d);
   x.setDate(1);
@@ -54,7 +56,7 @@ export function buildCalendarCells(
 }
 
 export function fmtMonth(d: Date): string {
-  return d.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  return d.toLocaleString(LOCALE, { month: "long", year: "numeric" });
 }
 
 // For meetings started today show the time; for older meetings show the
@@ -67,13 +69,13 @@ export function fmtTimestamp(iso: string, now: Date = new Date()): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   if (sameDay) {
-    return d.toLocaleString("en-GB", {
+    return d.toLocaleString(LOCALE, {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
   return d
-    .toLocaleString("en-GB", {
+    .toLocaleString(LOCALE, {
       day: "numeric",
       month: "short",
     })
