@@ -128,15 +128,18 @@
   }
 
   // Single entry point for both the auto-check on mount and the manual
-  // "Check for updates" button click. Failures (offline, unsigned dev
-  // bundle, malformed latest.json) drop us back to `idle` silently —
-  // there's no foreground UI to error into.
+  // "Check for updates" button click. The plugin's per-call `timeout`
+  // bounds a stalled GitHub fetch so the spinner can't hang forever
+  // (corporate proxy, TLS stall, network drop). Any error drops us
+  // back to `idle` and surfaces in the console for diagnosis.
+  const CHECK_TIMEOUT_MS = 30_000;
+  const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
   async function runUpdateCheck(): Promise<void> {
     if (!isNative) return;
     if (updateState !== "idle") return;
     updateState = "checking";
     try {
-      const update = await check();
+      const update = await check({ timeout: CHECK_TIMEOUT_MS });
       if (!update) {
         updateState = "idle";
         return;
@@ -144,9 +147,10 @@
       pendingUpdate = update;
       pendingVersion = update.version;
       updateState = "downloading";
-      await update.download();
+      await update.download(undefined, { timeout: DOWNLOAD_TIMEOUT_MS });
       updateState = "ready";
-    } catch {
+    } catch (e) {
+      console.error("[oatpad updater]", e);
       updateState = "idle";
       pendingUpdate = null;
       pendingVersion = null;
@@ -292,10 +296,20 @@
       </button>
     </div>
   </div>
-  {#if isNative}
-    <div class="row">
-      <span class="label">Updates</span>
-      <div class="update-actions">
+  {#if version}
+    <div class="version-row">
+      <span
+        class="version"
+        class:available={updateState === "ready" && pendingVersion}
+        aria-label="Oatpad version"
+      >
+        {#if updateState === "ready" && pendingVersion}
+          v{pendingVersion} available!
+        {:else}
+          v{version}
+        {/if}
+      </span>
+      {#if isNative}
         <button
           class="update-btn"
           class:active={updateState === "ready"}
@@ -307,26 +321,11 @@
           {#if updateState === "ready"}
             <RotateCw size={16} strokeWidth={2} />
           {:else}
-            <RefreshCw
-              size={16}
-              strokeWidth={2}
-              class={updateBusy ? "spin" : ""}
-            />
+            <span class="icon-wrap" class:spin={updateBusy}>
+              <RefreshCw size={16} strokeWidth={2} />
+            </span>
           {/if}
         </button>
-      </div>
-    </div>
-  {/if}
-  {#if version}
-    <div
-      class="version"
-      class:available={updateState === "ready" && pendingVersion}
-      aria-label="Oatpad version"
-    >
-      {#if updateState === "ready" && pendingVersion}
-        v{pendingVersion} available!
-      {:else}
-        v{version}
       {/if}
     </div>
   {/if}
@@ -351,8 +350,7 @@
     user-select: none;
   }
   .theme-picker,
-  .mcp-actions,
-  .update-actions {
+  .mcp-actions {
     display: inline-flex;
     gap: 2px;
   }
@@ -395,7 +393,12 @@
     opacity: 0.5;
     cursor: progress;
   }
-  .update-btn :global(.spin) {
+  .icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-wrap.spin {
     animation: oatpad-update-spin 1s linear infinite;
   }
   @keyframes oatpad-update-spin {
@@ -460,13 +463,22 @@
   .gap-slider:focus-visible {
     outline: none;
   }
+  /* Version + updater button share a footer-style row: separator above,
+     extra padding to set it apart from the regular Theme/Gap/MCP rows. */
+  .version-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  }
   .version {
-    text-align: center;
     font-size: 11px;
     color: color-mix(in srgb, var(--fg) 45%, transparent);
     font-variant-numeric: tabular-nums;
     user-select: text;
-    margin-top: 2px;
   }
   .version.available {
     color: var(--accent);
