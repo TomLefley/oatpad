@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { getVersion } from "@tauri-apps/api/app";
   import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -67,7 +66,17 @@
   // Pull persisted config once on mount. Fail-open defaults mean a fresh
   // install or a missing config file lands on "enabled" + "never installed"
   // without surfacing an error.
+  //
+  // The `initialized` flag pins the effect to a single run. runUpdateCheck()
+  // reads and writes updateState, so a naive $effect would track that read
+  // and re-fire when the catch handler resets to "idle" — looping forever.
+  // Early-returning on the second fire drops the tracked dep and breaks the
+  // cycle without relying on Svelte's untrack() semantics, which a future
+  // maintainer might inadvertently undo.
+  let initialized = false;
   $effect(() => {
+    if (initialized) return;
+    initialized = true;
     void loadConfig().then((c) => {
       mcpEnabled = c.mcpEnabled;
       mcpInstalled = c.mcpInstalled;
@@ -82,15 +91,9 @@
           // Web builds and any unexpected failure just hide the version
           // line — it's a footnote, not load-bearing.
         });
-      // Background auto-check on every Settings mount. Cheap and
-      // silent — `userInitiatedCheck` stays false, so the spinner
-      // doesn't show. Wrapped in untrack because runUpdateCheck()
-      // synchronously reads updateState — without it, Svelte tracks
-      // that read as a dependency and the catch handler's "back to
-      // idle" assignment re-fires the effect, looping forever.
-      untrack(() => {
-        void runUpdateCheck();
-      });
+      // Background auto-check on every Settings mount. Cheap and silent —
+      // `userInitiatedCheck` stays false, so the spinner doesn't show.
+      void runUpdateCheck();
     }
   });
 
