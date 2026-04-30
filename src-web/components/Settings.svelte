@@ -1,8 +1,4 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
-  import { getVersion } from "@tauri-apps/api/app";
-  import { check, type Update } from "@tauri-apps/plugin-updater";
-  import { relaunch } from "@tauri-apps/plugin-process";
   import {
     loadTheme,
     saveTheme,
@@ -17,85 +13,14 @@
     PARAGRAPH_GAP_MAX,
     PARAGRAPH_GAP_STEP,
   } from "../lib/paragraphGap";
-  import { loadConfig, saveConfig } from "../lib/config";
-  import { isNative } from "../lib/platform";
+  import McpRow from "./McpRow.svelte";
+  import UpdaterRow from "./UpdaterRow.svelte";
   import Sun from "@lucide/svelte/icons/sun";
   import Moon from "@lucide/svelte/icons/moon";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
-  import Bot from "@lucide/svelte/icons/bot";
-  import BotOff from "@lucide/svelte/icons/bot-off";
-  import BotMessageSquare from "@lucide/svelte/icons/bot-message-square";
-  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
-  import RotateCw from "@lucide/svelte/icons/rotate-cw";
 
   let theme = $state<Theme>(loadTheme());
   let paragraphGap = $state(loadParagraphGap());
-  let mcpEnabled = $state(true);
-  let mcpInstalled = $state(false);
-  let installBusy = $state(false);
-  let installError = $state<string | null>(null);
-  let version = $state<string | null>(null);
-  // Disables the MCP buttons until loadConfig resolves. Without this, a
-  // user clicking before the async load finishes would have the optimistic
-  // defaults (mcpEnabled=true, mcpInstalled=false) baked into saveConfig's
-  // `{...}` object literal — silently re-enabling an explicitly-disabled
-  // server, or wiping the sticky install marker.
-  let configLoaded = $state(false);
-
-  // Updater state machine:
-  //   idle        — no check yet, or last check found nothing
-  //   checking    — check() in flight
-  //   downloading — update found, bytes streaming
-  //   ready       — downloaded, awaiting user-triggered install + relaunch
-  //   restarting  — install + relaunch in flight (button disabled)
-  type UpdateState =
-    | "idle"
-    | "checking"
-    | "downloading"
-    | "ready"
-    | "restarting";
-  let updateState = $state<UpdateState>("idle");
-  let pendingUpdate: Update | null = null;
-  let pendingVersion = $state<string | null>(null);
-  // True only when there is an in-flight check the user is watching —
-  // either they clicked the button, or they clicked it after a silent
-  // background check had already started. Spinner visibility hangs off
-  // this flag so background activity stays invisible.
-  let userInitiatedCheck = $state(false);
-
-  // Pull persisted config once on mount. Fail-open defaults mean a fresh
-  // install or a missing config file lands on "enabled" + "never installed"
-  // without surfacing an error.
-  //
-  // The `initialized` flag pins the effect to a single run. runUpdateCheck()
-  // reads and writes updateState, so a naive $effect would track that read
-  // and re-fire when the catch handler resets to "idle" — looping forever.
-  // Early-returning on the second fire drops the tracked dep and breaks the
-  // cycle without relying on Svelte's untrack() semantics, which a future
-  // maintainer might inadvertently undo.
-  let initialized = false;
-  $effect(() => {
-    if (initialized) return;
-    initialized = true;
-    void loadConfig().then((c) => {
-      mcpEnabled = c.mcpEnabled;
-      mcpInstalled = c.mcpInstalled;
-      configLoaded = true;
-    });
-    if (isNative) {
-      void getVersion()
-        .then((v) => {
-          version = v;
-        })
-        .catch(() => {
-          // Web builds and any unexpected failure just hide the version
-          // line — it's a footnote, not load-bearing.
-        });
-      // Background auto-check on every Settings mount. Cheap and silent —
-      // `userInitiatedCheck` stays false, so the spinner doesn't show.
-      void runUpdateCheck();
-    }
-  });
 
   function pickTheme(next: Theme): void {
     if (next === theme) return;
@@ -109,160 +34,6 @@
     applyParagraphGap(next);
     saveParagraphGap(next);
   }
-
-  async function toggleMcp(): Promise<void> {
-    const next = !mcpEnabled;
-    mcpEnabled = next;
-    try {
-      await saveConfig({ mcpEnabled: next, mcpInstalled });
-    } catch {
-      // Roll back the optimistic flip if persistence fails — better to
-      // mismatch the on-screen state for a moment than to lie about what
-      // the MCP server will see on its next request.
-      mcpEnabled = !next;
-    }
-  }
-
-  async function installMcp(): Promise<void> {
-    installBusy = true;
-    installError = null;
-    try {
-      await invoke("install_mcpb");
-      mcpInstalled = true;
-      // Persist the install marker so subsequent launches show the
-      // button as "Reinstall" / active. Tolerate save failure — the
-      // OS handover already happened, the marker is just bookkeeping.
-      try {
-        await saveConfig({ mcpEnabled, mcpInstalled: true });
-      } catch {}
-    } catch (e) {
-      installError = String(e);
-    } finally {
-      installBusy = false;
-    }
-  }
-
-  // Single entry point for both the auto-check on mount and the manual
-  // "Check for updates" button click. The plugin's per-call `timeout`
-  // bounds a stalled GitHub fetch so the spinner can't hang forever
-  // (corporate proxy, TLS stall, network drop). Any error drops us
-  // back to `idle` and surfaces in the console for diagnosis.
-  const CHECK_TIMEOUT_MS = 30_000;
-  const DOWNLOAD_TIMEOUT_MS = 5 * 60_000;
-  // A fast cache hit can return in <100ms, which makes the spinner
-  // strobe rather than spin. Floor the animation at MIN_SPIN_MS so
-  // there's always at least half a turn visible.
-  const MIN_SPIN_MS = 500;
-  async function runUpdateCheck(): Promise<void> {
-    if (!isNative) return;
-    if (updateState !== "idle") return;
-    updateState = "checking";
-    const minSpin = new Promise<void>((r) => setTimeout(r, MIN_SPIN_MS));
-    try {
-      const update = await check({ timeout: CHECK_TIMEOUT_MS });
-      if (userInitiatedCheck) await minSpin;
-      if (!update) {
-        updateState = "idle";
-        return;
-      }
-      pendingUpdate = update;
-      pendingVersion = update.version;
-      updateState = "downloading";
-      await update.download(undefined, { timeout: DOWNLOAD_TIMEOUT_MS });
-      updateState = "ready";
-    } catch (e) {
-      if (userInitiatedCheck) await minSpin;
-      console.error("[oatpad updater]", e);
-      updateState = "idle";
-      pendingUpdate = null;
-      pendingVersion = null;
-    } finally {
-      // The spinner only matters while the activity is visible.
-      // Resetting here covers both "user clicked, check finished" and
-      // "user joined a bg check that then finished".
-      userInitiatedCheck = false;
-    }
-  }
-
-  async function restartToUpdate(): Promise<void> {
-    if (!pendingUpdate) return;
-    updateState = "restarting";
-    // Two awaits, two distinct failure modes: install can fail (bundle
-    // corrupt, FS permission, plugin error) but if it succeeds the new
-    // build is on disk and re-running install would either no-op or
-    // double-write. Distinguish them so a relaunch failure doesn't
-    // strand the user on a "Restart to update" button that would
-    // attempt to install again.
-    try {
-      await pendingUpdate.install();
-    } catch (e) {
-      console.error("[oatpad updater] install failed", e);
-      updateState = "ready";
-      return;
-    }
-    try {
-      await relaunch();
-    } catch (e) {
-      // Install succeeded — the next launch will already be the new
-      // version. Drop the in-memory pendingUpdate so the button reverts
-      // to "Check for updates" rather than re-prompting a restart.
-      console.error("[oatpad updater] relaunch failed", e);
-      pendingUpdate = null;
-      pendingVersion = null;
-      updateState = "idle";
-    }
-  }
-
-  function onUpdateButtonClick(): void {
-    if (updateState === "ready") {
-      void restartToUpdate();
-      return;
-    }
-    // Either start a fresh check, or just promote an in-flight
-    // background check to a visible one (so the spinner appears from
-    // here on out without spawning a duplicate request).
-    userInitiatedCheck = true;
-    if (updateState === "idle") {
-      void runUpdateCheck();
-    }
-  }
-
-  // Spinner only animates when the user is watching — background
-  // auto-checks stay invisible.
-  const spinning = $derived(
-    userInitiatedCheck &&
-      (updateState === "checking" || updateState === "downloading"),
-  );
-  // Disable the button when there's user-visible activity (avoid
-  // double-clicks) or while restart is in flight.
-  const updateBusy = $derived(spinning || updateState === "restarting");
-  const updateLabel = $derived(
-    updateState === "ready" ? "Restart to update" : "Check for updates",
-  );
-  const updateTitle = $derived(
-    updateState === "ready"
-      ? `Restart to install v${pendingVersion}`
-      : updateState === "restarting"
-        ? "Restarting…"
-        : spinning && updateState === "downloading"
-          ? "Downloading update…"
-          : spinning
-            ? "Checking…"
-            : "Check for updates",
-  );
-
-  const installLabel = $derived(
-    mcpInstalled
-      ? "Reinstall Oatpad's MCP server in Claude"
-      : "Install Oatpad's MCP server in Claude",
-  );
-  const installTitle = $derived(
-    installError
-      ? `Install failed: ${installError}`
-      : mcpInstalled
-        ? "Reinstall in Claude Desktop"
-        : "Install in Claude Desktop",
-  );
 </script>
 
 <div class="settings">
@@ -318,70 +89,8 @@
       title="{paragraphGap.toFixed(3).replace(/\.?0+$/, '')}em"
     />
   </div>
-  <div class="row">
-    <span class="label">MCP server</span>
-    <div class="mcp-actions">
-      <button
-        class="mcp-btn"
-        class:active={mcpInstalled}
-        onclick={installMcp}
-        aria-label={installLabel}
-        title={installTitle}
-        disabled={installBusy || !configLoaded}
-      >
-        <BotMessageSquare size={16} strokeWidth={2} />
-      </button>
-      <button
-        class="mcp-btn"
-        class:active={mcpEnabled}
-        onclick={toggleMcp}
-        role="switch"
-        aria-checked={mcpEnabled}
-        aria-label={mcpEnabled ? "Stop MCP server" : "Start MCP server"}
-        title={mcpEnabled ? "Running" : "Stopped"}
-        disabled={!configLoaded}
-      >
-        {#if mcpEnabled}
-          <Bot size={16} strokeWidth={2} />
-        {:else}
-          <BotOff size={16} strokeWidth={2} />
-        {/if}
-      </button>
-    </div>
-  </div>
-  {#if version}
-    <div class="version-row">
-      <span
-        class="version"
-        class:available={updateState === "ready" && pendingVersion}
-        aria-label="Oatpad version"
-      >
-        {#if updateState === "ready" && pendingVersion}
-          v{pendingVersion} available!
-        {:else}
-          v{version}
-        {/if}
-      </span>
-      {#if isNative}
-        <button
-          class="update-btn"
-          class:active={updateState === "ready"}
-          onclick={onUpdateButtonClick}
-          aria-label={updateLabel}
-          title={updateTitle}
-          disabled={updateBusy}
-        >
-          {#if updateState === "ready"}
-            <RotateCw size={16} strokeWidth={2} />
-          {:else}
-            <span class="icon-wrap" class:spin={spinning}>
-              <RefreshCw size={16} strokeWidth={2} />
-            </span>
-          {/if}
-        </button>
-      {/if}
-    </div>
-  {/if}
+  <McpRow />
+  <UpdaterRow />
 </div>
 
 <style>
@@ -402,14 +111,11 @@
     color: color-mix(in srgb, var(--fg) 75%, transparent);
     user-select: none;
   }
-  .theme-picker,
-  .mcp-actions {
+  .theme-picker {
     display: inline-flex;
     gap: 2px;
   }
-  .theme-btn,
-  .mcp-btn,
-  .update-btn {
+  .theme-btn {
     all: unset;
     display: inline-flex;
     align-items: center;
@@ -423,41 +129,17 @@
       color 120ms ease,
       background-color 120ms ease;
   }
-  .theme-btn:hover,
-  .mcp-btn:hover,
-  .update-btn:hover {
+  .theme-btn:hover {
     color: var(--accent);
     background: color-mix(in srgb, var(--fg) 10%, transparent);
   }
-  .theme-btn:focus-visible,
-  .mcp-btn:focus-visible,
-  .update-btn:focus-visible {
+  .theme-btn:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
   }
-  .theme-btn.active,
-  .mcp-btn.active,
-  .update-btn.active {
+  .theme-btn.active {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-  .mcp-btn[disabled],
-  .update-btn[disabled] {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .icon-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .icon-wrap.spin {
-    animation: oatpad-update-spin 1s linear infinite;
-  }
-  @keyframes oatpad-update-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
   /* Slim slider styled to sit alongside the icon-button rows. The
      `appearance: none` baseline strips Chrome/Safari/Firefox's chrome
@@ -515,26 +197,5 @@
   }
   .gap-slider:focus-visible {
     outline: none;
-  }
-  /* Version + updater button share a footer-style row: separator above,
-     extra padding to set it apart from the regular Theme/Gap/MCP rows. */
-  .version-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 6px;
-    padding-top: 10px;
-    border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
-  }
-  .version {
-    font-size: 11px;
-    color: color-mix(in srgb, var(--fg) 45%, transparent);
-    font-variant-numeric: tabular-nums;
-    user-select: text;
-  }
-  .version.available {
-    color: var(--accent);
-    font-weight: 600;
   }
 </style>
