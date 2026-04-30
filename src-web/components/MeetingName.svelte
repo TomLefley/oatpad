@@ -1,48 +1,17 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
+  import EditableLabel from "./EditableLabel.svelte";
 
-  let draft = $state(store.state.meeting?.title ?? "");
-  let inputEl: HTMLInputElement | undefined = $state();
-
-  // Keep local draft aligned with the store when the user isn't actively
-  // editing — covers meeting switches and autosave-driven title changes.
-  $effect(() => {
-    const t = store.state.meeting?.title ?? "";
-    if (t !== draft && document.activeElement !== inputEl) {
-      draft = t;
-    }
-  });
-
-  function commit(): void {
-    const trimmed = draft.trim();
-    draft = trimmed;
-    store.setTitle(trimmed);
-  }
-
-  function handleKeydown(e: KeyboardEvent): void {
-    if (e.key === "Enter") {
-      inputEl?.blur();
-    } else if (e.key === "Escape") {
-      draft = store.state.meeting?.title ?? "";
-      inputEl?.blur();
-    }
-  }
-
-  function handleFocus(): void {
-    inputEl?.select();
-  }
+  const value = $derived(store.state.meeting?.title ?? "");
 </script>
 
 <div class="meeting-name">
-  <input
-    bind:this={inputEl}
-    bind:value={draft}
-    class="name-input"
+  <EditableLabel
+    {value}
     placeholder="meeting"
-    aria-label="Meeting name"
-    onkeydown={handleKeydown}
-    onfocus={handleFocus}
-    onblur={commit}
+    ariaLabel="Meeting name"
+    inputClass="name-input"
+    onCommit={(next) => store.setTitle(next)}
   />
 </div>
 
@@ -59,7 +28,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  .name-input {
+  :global(.meeting-name .name-input) {
     all: unset;
     width: 100%;
     cursor: text;
@@ -70,14 +39,14 @@
     transition: text-decoration-color 120ms ease;
   }
   /* Empty (placeholder showing): muted underline hints it's editable. */
-  .name-input:placeholder-shown {
+  :global(.meeting-name .name-input:placeholder-shown) {
     text-decoration-color: var(--muted);
   }
   /* Hover always shows the accent underline, whether set or unset. */
-  .name-input:hover:not(:focus) {
+  :global(.meeting-name .name-input:hover:not(:focus)) {
     text-decoration-color: var(--accent);
   }
-  .name-input::placeholder {
+  :global(.meeting-name .name-input::placeholder) {
     color: var(--muted);
     opacity: 1;
   }

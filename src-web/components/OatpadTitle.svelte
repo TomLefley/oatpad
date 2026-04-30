@@ -1,50 +1,21 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
+  import EditableLabel from "./EditableLabel.svelte";
 
   type Size = "header" | "hero";
   type Props = { size?: Size };
   let { size = "header" }: Props = $props();
 
-  let draft = $state(store.state.notetaker);
-  let inputEl: HTMLInputElement | undefined = $state();
-
-  $effect(() => {
-    const n = store.state.notetaker;
-    if (n !== draft && document.activeElement !== inputEl) {
-      draft = n;
-    }
-  });
-
-  function commitName(): void {
-    const trimmed = draft.trim();
-    draft = trimmed;
-    store.setNotetaker(trimmed);
-  }
-
-  function handleKeydown(e: KeyboardEvent): void {
-    if (e.key === "Enter") {
-      inputEl?.blur();
-    } else if (e.key === "Escape") {
-      draft = store.state.notetaker;
-      inputEl?.blur();
-    }
-  }
-
-  function handleFocus(): void {
-    inputEl?.select();
-  }
+  const value = $derived(store.state.notetaker);
 </script>
 
 <h1 class="title" class:hero={size === "hero"}
-  ><input
-    bind:this={inputEl}
-    bind:value={draft}
-    class="name-input"
+  ><EditableLabel
+    {value}
     placeholder="Your name"
-    data-coachmark-target="notetaker"
-    onkeydown={handleKeydown}
-    onfocus={handleFocus}
-    onblur={commitName}
+    inputClass="name-input"
+    dataCoachmarkTarget="notetaker"
+    onCommit={(next) => store.setNotetaker(next)}
   /><span class="suffix">'s </span><span class="oat-word">oat</span><span
     class="pad">pad</span>
 </h1>
@@ -77,7 +48,7 @@
   .pad {
     margin-left: 0.05em;
   }
-  .name-input {
+  :global(.title .name-input) {
     all: unset;
     min-width: 1ch;
     field-sizing: content;
@@ -87,13 +58,13 @@
     text-decoration-thickness: 1px;
     transition: text-decoration-color 120ms ease;
   }
-  .name-input:placeholder-shown {
+  :global(.title .name-input:placeholder-shown) {
     text-decoration-color: var(--muted);
   }
-  .name-input:hover:not(:focus) {
+  :global(.title .name-input:hover:not(:focus)) {
     text-decoration-color: var(--accent);
   }
-  .name-input::placeholder {
+  :global(.title .name-input::placeholder) {
     color: var(--muted);
     opacity: 1;
   }
