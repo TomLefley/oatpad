@@ -6,11 +6,10 @@ import {
   flushNote,
   flushAll,
   isCrossWord,
-  commonPrefixLen,
-  commonSuffixLen,
   type NoteFlushMap,
   type FlushIO,
 } from "./noteFlush";
+import { commonPrefixLen, commonSuffixLen } from "./commonAffix";
 import type { OatsEvent, Paragraph } from "./types";
 
 const TS = "2026-04-28T12:00:00.000Z";
