@@ -23,12 +23,22 @@
   import MeetingName from "./MeetingName.svelte";
 
   const SNAPSHOT_DEBOUNCE_MS = 300;
+  // `note_updated` emits are deferred per-note: a cross-word boundary in
+  // noteFlush arms the timer, any further activity in the same note resets
+  // it, and the timer firing emits the *current* lastText. This coalesces
+  // bursts of rapid edit-rewrite cycles into a single settled-state event
+  // without reintroducing the mid-thought fragmentation that the pre-
+  // 36ec193 idle-timer system suffered from — pure-typing notes (no cross-
+  // word reversal) never arm the timer, so a thinking pause does not split
+  // them. Focus-loss / blur / explicit flush still emit synchronously.
+  const IDLE_EMIT_MS = 1500;
 
   let container: HTMLDivElement | undefined = $state();
   let quill: Quill | null = null;
   let noteFlushState: NoteFlushMap = createNoteFlushState();
   let activeNoteId: string | null = null;
   let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+  const idleTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let suppressCommit = false;
 
   const io: FlushIO = {
@@ -36,8 +46,48 @@
     now: () => new Date().toISOString(),
   };
 
-  function emit(events: OatsEvent[]): void {
+  function emitImmediate(events: OatsEvent[]): void {
     if (events.length > 0) store.appendEvents(events);
+  }
+
+  // Routes events from `onTextChange`. `note_updated` is deferred via the
+  // per-note idle buffer; everything else flushes through to the store
+  // immediately. `note_deleted` also clears any pending idle timer for
+  // that note — the buffered emit would have been stale anyway.
+  function emitFromTextChange(events: OatsEvent[]): void {
+    const immediate: OatsEvent[] = [];
+    for (const e of events) {
+      if (e.type === "note_updated") {
+        armIdleTimer(e.noteId);
+      } else {
+        if (e.type === "note_deleted") cancelIdleTimer(e.noteId);
+        immediate.push(e);
+      }
+    }
+    emitImmediate(immediate);
+  }
+
+  function armIdleTimer(noteId: string): void {
+    const existing = idleTimers.get(noteId);
+    if (existing) clearTimeout(existing);
+    const t = setTimeout(() => {
+      idleTimers.delete(noteId);
+      const out = flushNote(noteFlushState, noteId, io);
+      emitImmediate(out.events);
+    }, IDLE_EMIT_MS);
+    idleTimers.set(noteId, t);
+  }
+
+  function cancelIdleTimer(noteId: string): void {
+    const existing = idleTimers.get(noteId);
+    if (!existing) return;
+    clearTimeout(existing);
+    idleTimers.delete(noteId);
+  }
+
+  function cancelAllIdleTimers(): void {
+    for (const t of idleTimers.values()) clearTimeout(t);
+    idleTimers.clear();
   }
 
   function persistSnapshot(): void {
@@ -65,9 +115,10 @@
       clearTimeout(snapshotTimer);
       snapshotTimer = null;
     }
+    cancelAllIdleTimers();
     if (suppressCommit) return;
     const out = flushAll(noteFlushState, io);
-    emit(out.events);
+    emitImmediate(out.events);
     persistSnapshot();
   }
 
@@ -78,6 +129,7 @@
       clearTimeout(snapshotTimer);
       snapshotTimer = null;
     }
+    cancelAllIdleTimers();
     const meeting = store.state.meeting;
     if (meeting) {
       quill.setContents(meeting.snapshot as unknown as never);
@@ -126,8 +178,9 @@
 
   function flushActiveNote(): void {
     if (!activeNoteId) return;
+    cancelIdleTimer(activeNoteId);
     const out = flushNote(noteFlushState, activeNoteId, io);
-    emit(out.events);
+    emitImmediate(out.events);
   }
 
   function handleTextChange(
@@ -143,8 +196,25 @@
     if (!quill) return;
     reconcileNoteIds(quill.root, uuid);
     const paragraphs = readParagraphs(quill.root);
+    // Snapshot lastText per note before onTextChange mutates it. After
+    // the call, any note whose lastText differs from its prior value had
+    // a text change in this tick — within-word edits show up here even
+    // when no note_updated event was returned.
+    const priorLastText = new Map<string, string>();
+    for (const [id, entry] of noteFlushState) {
+      priorLastText.set(id, entry.lastText);
+    }
     const out = onTextChange(noteFlushState, paragraphs, io);
-    emit(out.events);
+    emitFromTextChange(out.events);
+    // Within-word activity in a note that already has a buffered emit
+    // (timer armed) keeps the timer alive — the user is still editing,
+    // so the state is not yet settled.
+    for (const p of paragraphs) {
+      if (!idleTimers.has(p.noteId)) continue;
+      if (priorLastText.get(p.noteId) !== p.markdown) {
+        armIdleTimer(p.noteId);
+      }
+    }
     scheduleSnapshot();
   }
 
@@ -276,10 +346,13 @@
       handleSelectionChange(range);
     });
     quill.root.addEventListener("blur", handleBlur);
+    store.registerEditorFlush(flush);
   });
 
   onDestroy(() => {
     if (snapshotTimer) clearTimeout(snapshotTimer);
+    cancelAllIdleTimers();
+    store.unregisterEditorFlush(flush);
     if (quill) {
       quill.root.removeEventListener("blur", handleBlur);
     }

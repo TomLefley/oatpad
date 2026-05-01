@@ -44,6 +44,8 @@ vi.mock("./lib/store.svelte", () => ({
   appendEvents: vi.fn(),
   setSnapshot: vi.fn(),
   noteInput: vi.fn(),
+  registerEditorFlush: vi.fn(),
+  unregisterEditorFlush: vi.fn(),
 }));
 
 let isNativeFlag = false;

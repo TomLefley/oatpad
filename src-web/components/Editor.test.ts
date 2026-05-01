@@ -43,6 +43,8 @@ vi.mock("../lib/store.svelte", () => ({
     setSnapshot(snapshot, ids),
   setTitle: (t: string) => setTitle(t),
   noteInput: () => noteInput(),
+  registerEditorFlush: vi.fn(),
+  unregisterEditorFlush: vi.fn(),
 }));
 
 function seedMeeting(overrides: Partial<StoreMeeting> = {}): StoreMeeting {

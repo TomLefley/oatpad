@@ -374,9 +374,26 @@ export function toOatsFile(): OatsFile | null {
   return toOatsFileFrom(state.meeting);
 }
 
+// The Editor registers its synchronous `flush()` here on mount so that
+// beforeunload can land any buffered note_updated emits in
+// state.meeting.events before the persistence flush copies events to
+// disk. Without this, an idle-buffered emit cycle would be lost when
+// the user closes the app between the cross-word boundary and the
+// debounced timer fire.
+let editorFlush: (() => void) | null = null;
+
+export function registerEditorFlush(fn: () => void): void {
+  editorFlush = fn;
+}
+
+export function unregisterEditorFlush(fn: () => void): void {
+  if (editorFlush === fn) editorFlush = null;
+}
+
 // Flush any pending autosave before the window closes.
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
+    if (editorFlush) editorFlush();
     void flushPersist();
   });
 }
