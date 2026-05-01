@@ -25,8 +25,13 @@ type CheckResult =
 const getVersion = vi.fn<() => Promise<string>>(async () => "1.0.0");
 const tauriCheck = vi.fn<() => Promise<CheckResult>>(async () => null);
 const tauriRelaunch = vi.fn<() => Promise<void>>(async () => {});
+const invoke =
+  vi.fn<(cmd: string, args?: unknown) => Promise<unknown>>(async () => {});
 
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: () => getVersion() }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args?: unknown) => invoke(cmd, args),
+}));
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: () => tauriCheck(),
 }));
@@ -49,6 +54,7 @@ beforeEach(async () => {
   getVersion.mockReset().mockResolvedValue("1.2.3");
   tauriCheck.mockReset().mockResolvedValue(null);
   tauriRelaunch.mockReset();
+  invoke.mockReset().mockResolvedValue(undefined);
   const { resetForTest } = await import("../lib/updaterInstance.svelte");
   resetForTest();
 });
@@ -127,6 +133,60 @@ describe("UpdaterRow rendering", () => {
     versionState.value = "1.0.0";
     const { container } = await mountUpdaterRow({ init: false });
     expect(container.querySelector("button.update-btn")).toBeNull();
+  });
+
+  it("renders a feedback button that opens the issue-template chooser via open_url when native", async () => {
+    getVersion.mockResolvedValueOnce("1.0.0");
+    const { container } = await mountUpdaterRow();
+    const btn = container.querySelector(
+      "button.feedback-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    btn.click();
+    await Promise.resolve();
+    expect(invoke).toHaveBeenCalledWith("open_url", {
+      url: "https://github.com/TomLefley/oatpad/issues/new/choose",
+    });
+  });
+
+  it("falls back to window.open when invoke('open_url') rejects", async () => {
+    getVersion.mockResolvedValueOnce("1.0.0");
+    invoke.mockRejectedValueOnce(new Error("nope"));
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockReturnValue(null as unknown as Window);
+    const { container } = await mountUpdaterRow();
+    const btn = container.querySelector(
+      "button.feedback-btn",
+    ) as HTMLButtonElement;
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/TomLefley/oatpad/issues/new/choose",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
+
+  it("uses window.open directly in web mode (no invoke call)", async () => {
+    isNativeFlag = false;
+    const { versionState } = await import("../lib/updaterInstance.svelte");
+    versionState.value = "1.0.0";
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockReturnValue(null as unknown as Window);
+    const { container } = await mountUpdaterRow({ init: false });
+    const btn = container.querySelector(
+      "button.feedback-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    btn.click();
+    await Promise.resolve();
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(invoke).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   it("disables the update button while the machine is busy (e.g. restarting)", async () => {

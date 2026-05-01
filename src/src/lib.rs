@@ -41,6 +41,32 @@ fn open_with_os_handler(path: &std::path::Path) -> std::io::Result<()> {
     Ok(())
 }
 
+// Hands a URL to the OS so the user's default browser opens it.
+// Same dispatch pattern as `open_with_os_handler` — `open` on macOS,
+// `start` on Windows, `xdg-open` on Linux — but accepts a URL string
+// since URLs aren't filesystem paths.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let result: std::io::Result<()> = (|| {
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open").arg(&url).spawn()?;
+        }
+        #[cfg(target_os = "windows")]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", &url])
+                .spawn()?;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            std::process::Command::new("xdg-open").arg(&url).spawn()?;
+        }
+        Ok(())
+    })();
+    result.map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -48,7 +74,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![install_mcpb])
+        .invoke_handler(tauri::generate_handler![install_mcpb, open_url])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

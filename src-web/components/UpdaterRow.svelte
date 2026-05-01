@@ -1,13 +1,33 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
   import { isNative } from "../lib/platform";
   import { updater, versionState } from "../lib/updaterInstance.svelte";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
+  import Bug from "@lucide/svelte/icons/bug";
 
   // The machine and the auto-check live in updaterInstance.svelte — that
   // way the header's "update ready" dot can read the machine's state even
   // before the settings bubble has ever been opened. This component is now
   // purely the rendering surface for the same singleton.
+
+  // GitHub's template-chooser route lets the user pick a bug/feature
+  // template instead of dropping them onto a blank issue body.
+  const FEEDBACK_URL =
+    "https://github.com/TomLefley/oatpad/issues/new/choose";
+
+  async function reportFeedback(): Promise<void> {
+    if (isNative) {
+      try {
+        await invoke("open_url", { url: FEEDBACK_URL });
+        return;
+      } catch {
+        // Fall through to window.open if the OS handler refuses —
+        // better than dropping the click silently.
+      }
+    }
+    window.open(FEEDBACK_URL, "_blank", "noopener,noreferrer");
+  }
 
   const updateLabel = $derived(
     updater.state === "ready" ? "Restart to update" : "Check for updates",
@@ -38,24 +58,34 @@
         v{versionState.value}
       {/if}
     </span>
-    {#if isNative}
+    <div class="footer-actions">
+      {#if isNative}
+        <button
+          class="update-btn"
+          class:active={updater.state === "ready"}
+          onclick={() => updater.click()}
+          aria-label={updateLabel}
+          title={updateTitle}
+          disabled={updater.busy}
+        >
+          {#if updater.state === "ready"}
+            <RotateCw size={16} strokeWidth={2} />
+          {:else}
+            <span class="icon-wrap" class:spin={updater.spinning}>
+              <RefreshCw size={16} strokeWidth={2} />
+            </span>
+          {/if}
+        </button>
+      {/if}
       <button
-        class="update-btn"
-        class:active={updater.state === "ready"}
-        onclick={() => updater.click()}
-        aria-label={updateLabel}
-        title={updateTitle}
-        disabled={updater.busy}
+        class="feedback-btn"
+        onclick={reportFeedback}
+        aria-label="Report a bug on GitHub"
+        title="Report a bug on GitHub"
       >
-        {#if updater.state === "ready"}
-          <RotateCw size={16} strokeWidth={2} />
-        {:else}
-          <span class="icon-wrap" class:spin={updater.spinning}>
-            <RefreshCw size={16} strokeWidth={2} />
-          </span>
-        {/if}
+        <Bug size={16} strokeWidth={2} />
       </button>
-    {/if}
+    </div>
   </div>
 {/if}
 
@@ -81,7 +111,12 @@
     color: var(--accent);
     font-weight: 600;
   }
-  .update-btn {
+  .footer-actions {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .update-btn,
+  .feedback-btn {
     all: unset;
     display: inline-flex;
     align-items: center;
@@ -95,11 +130,13 @@
       color 120ms ease,
       background-color 120ms ease;
   }
-  .update-btn:hover {
+  .update-btn:hover,
+  .feedback-btn:hover {
     color: var(--accent);
     background: color-mix(in srgb, var(--fg) 10%, transparent);
   }
-  .update-btn:focus-visible {
+  .update-btn:focus-visible,
+  .feedback-btn:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
   }
