@@ -49,7 +49,7 @@
     },
     "macOS": {
       "minimumSystemVersion": "11.0",
-      "signingIdentity": "Oatpad Dev"
+      "signingIdentity": "Mac Development: Oatpad"
     }
   }
 }
