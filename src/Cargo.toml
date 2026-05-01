@@ -1,6 +1,6 @@
 [package]
 name = "oatpad"
-version = "0.2.0"
+version = "0.3.0"
 description = "Meeting notes app with timestamped edit history"
 authors = ["Tom Shelton-Lefley"]
 edition = "2021"
