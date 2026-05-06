@@ -394,9 +394,14 @@
     min-width: 0;
   }
   /* Pushdown spacer for the schedule bubble. Same easing as the
-     sidebar's spacer so both bubbles glide on identical springs. */
+     sidebar's spacer so both bubbles glide on identical springs.
+     Matches the editor's surface so the area revealed behind the
+     bubble reads as a continuation of the page below it (without it
+     the spacer would show .body's default --bg, which contrasts
+     against the editor's lighter --surface). */
   .schedule-spacer {
     flex-shrink: 0;
+    background: var(--surface);
     transition: height var(--anim-slide) var(--ease-spring);
   }
 </style>
