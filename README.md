@@ -14,10 +14,18 @@ covering Apple Silicon and Intel). The bundle is unsigned, so the first launch
 needs right-click → Open to bypass Gatekeeper.
 
 To cut a new release, push a `v*` tag (e.g. `git tag v0.1.0 && git push --tags`)
-or run the **Release** workflow manually from the Actions tab. The workflow
-publishes a **draft** release — review the assets, then publish from the GitHub
-UI. Each release uploads three signed assets that the in-app updater consumes:
-the `.app.tar.gz` bundle, its `.sig` file, and `latest.json`.
+or run the **Release** workflow manually from the Actions tab. Each release
+uploads three signed assets that the in-app updater consumes: the `.app.tar.gz`
+bundle, its `.sig` file, and `latest.json`.
+
+Tag shape decides whether the release auto-publishes:
+
+- **`vX.Y.Z` (Z > 0)** — patch release. Auto-published; the in-app updater
+  picks it up on next launch with no human in the loop.
+- **`vX.Y.0`** — major or minor release. Workflow leaves a **draft** in
+  GitHub; review the assets / release notes, then publish from the UI.
+- Anything else (pre-release suffix, malformed tag) — falls through to
+  the draft path so nothing ships unintentionally.
 
 ## Updates
 
