@@ -206,6 +206,26 @@ export function setTitle(title: string): void {
   persist();
 }
 
+// Used by the empty-meeting datetime picker in MeetingMeta. Writes a
+// schedule onto the current meeting and refreshes the sidebar row so
+// the clock + scheduled time appear immediately.
+export function setScheduledStartAt(iso: string): void {
+  if (!state.meeting) return;
+  state.meeting.scheduledStartAt = iso;
+  if (isNative) refreshCurrentSummary();
+  persist();
+}
+
+// Drops a previously-set schedule. Reaches the same code paths as
+// setScheduledStartAt so the sidebar row's clock indicator and sort
+// key fall back to createdAt cleanly.
+export function clearScheduledStartAt(): void {
+  if (!state.meeting) return;
+  state.meeting.scheduledStartAt = undefined;
+  if (isNative) refreshCurrentSummary();
+  persist();
+}
+
 export function appendEvents(events: OatsEvent[]): void {
   if (!state.meeting) return;
   if (events.length === 0) return;

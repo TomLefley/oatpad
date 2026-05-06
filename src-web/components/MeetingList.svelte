@@ -7,7 +7,7 @@
   import { backOut } from "svelte/easing";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Check from "@lucide/svelte/icons/check";
-  import Clock from "@lucide/svelte/icons/clock";
+  import CalendarClock from "@lucide/svelte/icons/calendar-clock";
 
   type Props = {
     meetings: MeetingSummary[];
@@ -108,7 +108,7 @@
             aria-label="Scheduled to start"
             title="Scheduled to start"
           >
-            <Clock size={12} strokeWidth={2} />
+            <CalendarClock size={12} strokeWidth={2} />
           </span>
         {/if}
         <span class="row-time">{fmtTimestamp(rowTime)}</span>

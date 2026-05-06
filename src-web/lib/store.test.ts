@@ -334,6 +334,19 @@ describe("replaceMeetingFromFile (native)", () => {
     expect(store.state.firstInputAt).toBeNull();
     expect(store.state.lastInputAt).toBeNull();
   });
+
+  it("preserves scheduledStartAt from the loaded file", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    const incoming: OatsFile = {
+      ...makeFile("ccc", "Imported", "2026-04-26T09:00:00.000Z"),
+      scheduledStartAt: "2026-04-26T15:00:00.000Z",
+    };
+    store.replaceMeetingFromFile(incoming);
+    expect(store.state.meeting?.scheduledStartAt).toBe(
+      "2026-04-26T15:00:00.000Z",
+    );
+  });
 });
 
 describe("appendEvents (native) — sidebar started flag", () => {
@@ -387,6 +400,82 @@ describe("appendEvents (native) — sidebar started flag", () => {
     // Sidebar must reflect the transition immediately so the clock icon
     // disappears the moment the meeting starts.
     expect(store.state.meetings[0].started).toBe(true);
+  });
+});
+
+describe("setScheduledStartAt (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("writes scheduledStartAt onto the current meeting and refreshes the sidebar summary", async () => {
+    const a = makeFile("aaa", "Meeting A", "2026-04-29T08:00:00.000Z");
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.scheduledStartAt).toBeUndefined();
+    expect(store.state.meetings[0].scheduledStartAt).toBeUndefined();
+
+    store.setScheduledStartAt("2026-04-29T15:00:00.000Z");
+
+    expect(store.state.meeting?.scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+    expect(store.state.meetings[0].scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+
+    await store.flushPersist();
+    expect(meetingFiles.get("aaa")?.scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+  });
+
+  it("is a no-op when there is no meeting in view", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting).toBeNull();
+    // Must not throw — the empty-state Getting Started view never renders
+    // a datetime picker, but a stale callback after delete shouldn't blow up.
+    expect(() => store.setScheduledStartAt("2026-04-29T15:00:00.000Z")).not.toThrow();
+  });
+});
+
+describe("clearScheduledStartAt (native)", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("removes scheduledStartAt from the current meeting and the sidebar summary", async () => {
+    const a: OatsFile = {
+      ...makeFile("aaa", "Meeting A", "2026-04-29T08:00:00.000Z"),
+      scheduledStartAt: "2026-04-29T15:00:00.000Z",
+    };
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+    expect(store.state.meetings[0].scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+
+    store.clearScheduledStartAt();
+
+    expect(store.state.meeting?.scheduledStartAt).toBeUndefined();
+    expect(store.state.meetings[0].scheduledStartAt).toBeUndefined();
+
+    await store.flushPersist();
+    expect(meetingFiles.get("aaa")?.scheduledStartAt).toBeUndefined();
+  });
+
+  it("is a no-op when there is no meeting in view", async () => {
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(() => store.clearScheduledStartAt()).not.toThrow();
   });
 });
 

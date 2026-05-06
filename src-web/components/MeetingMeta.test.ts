@@ -2,9 +2,10 @@
 
 import "./testSetup";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render } from "@testing-library/svelte";
+import { render, fireEvent } from "@testing-library/svelte";
 import { tick } from "svelte";
 import type { OatsEvent } from "../lib/types";
+import { LOCALE } from "../lib/locale";
 
 // MeetingMeta reads only state.meeting + the live input markers off the
 // store. Mock those directly so each test can dial them in without
@@ -26,16 +27,23 @@ const storeState: StoreState = {
   lastInputAt: null,
 };
 
+const setScheduledStartAt = vi.fn<(iso: string) => void>();
+const clearScheduledStartAt = vi.fn<() => void>();
+
 vi.mock("../lib/store.svelte", () => ({
   get state() {
     return storeState;
   },
+  setScheduledStartAt: (iso: string) => setScheduledStartAt(iso),
+  clearScheduledStartAt: () => clearScheduledStartAt(),
 }));
 
 beforeEach(() => {
   storeState.meeting = null;
   storeState.firstInputAt = null;
   storeState.lastInputAt = null;
+  setScheduledStartAt.mockReset();
+  clearScheduledStartAt.mockReset();
 });
 
 async function mount() {
@@ -45,25 +53,27 @@ async function mount() {
   return result;
 }
 
-// Build a TZ-agnostic regex matching the locale-formatted HH:MM that
-// MeetingMeta will render for an ISO string. The component formats with
-// the system's local timezone, so a test running in BST will render an
-// 08:00 UTC instant as 09:00. Comparing against the local-time HH:MM
-// avoids that brittleness without pinning TZ globally.
-function localHHMM(iso: string): RegExp {
+// Mirror the production fmt() formatter used to render the trigger label
+// (e.g. "30 Apr 15:00"). Locale + TZ-agnostic via the same Intl path the
+// component uses.
+function fmt(iso: string): string {
   const d = new Date(iso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return new RegExp(`${hh}:${mm}`);
+  return d
+    .toLocaleString(LOCALE, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .replace(",", "");
 }
 
-describe("MeetingMeta — scheduled but not started", () => {
-  it("renders the clock icon and scheduled datetime when only scheduledStartAt is set", async () => {
+describe("MeetingMeta — empty meeting trigger", () => {
+  it("renders an editable button labelled with the formatted scheduled time", async () => {
     storeState.meeting = {
       meetingId: "m",
       createdAt: "2026-04-30T08:00:00.000Z",
       scheduledStartAt: "2026-04-30T15:00:00.000Z",
-      // Bookkeeping only — no edits.
       events: [
         {
           type: "meeting_started",
@@ -75,24 +85,148 @@ describe("MeetingMeta — scheduled but not started", () => {
     };
     const { container } = await mount();
 
-    // Clock icon is present (the scheduled marker).
+    // The trigger is a button (so a11y / keyboard activation work) with
+    // the dashed-underline editable affordance class shared with
+    // MeetingName / EditableLabel-styled targets.
+    const trigger = container.querySelector(
+      "button.ts-trigger",
+    ) as HTMLButtonElement | null;
+    expect(trigger).not.toBeNull();
+    // Label uses the human "30 Apr 15:00" format (not the native
+    // datetime-local "2026-04-30T15:00" format).
+    expect(trigger?.textContent?.trim()).toBe(fmt("2026-04-30T15:00:00.000Z"));
+    // Calendar-clock icon stays alongside the trigger when scheduled.
     expect(container.querySelector(".scheduled-icon")).not.toBeNull();
-    // The visible timestamp is the scheduled time, not createdAt — this
-    // matters because they differ here (08:00 created vs 15:00 scheduled).
-    const ts = container.querySelector(".ts");
-    expect(ts?.textContent).toMatch(localHHMM("2026-04-30T15:00:00.000Z"));
-    expect(ts?.textContent).not.toMatch(localHHMM("2026-04-30T08:00:00.000Z"));
-    // No phase indicator: the meeting hasn't started, so the live/idle/
-    // ended ellipsis must not render.
+    // No phase indicator while empty.
     expect(container.querySelector(".ellipsis")).toBeNull();
     expect(container.querySelector(".arrow")).toBeNull();
   });
 
-  it("hides the clock once an edit event arrives (no longer scheduled-only)", async () => {
+  it("seeds the trigger from createdAt when no schedule is set, and hides the clock icon", async () => {
+    storeState.meeting = {
+      meetingId: "m",
+      createdAt: "2026-04-30T08:00:00.000Z",
+      events: [
+        {
+          type: "meeting_started",
+          id: "e1",
+          ts: "2026-04-30T08:00:00.000Z",
+          notetaker: "Tom",
+        },
+      ],
+    };
+    const { container } = await mount();
+    const trigger = container.querySelector(
+      "button.ts-trigger",
+    ) as HTMLButtonElement;
+    expect(trigger.textContent?.trim()).toBe(fmt("2026-04-30T08:00:00.000Z"));
+    expect(container.querySelector(".scheduled-icon")).toBeNull();
+  });
+
+  it("toggles the bubble open/closed on successive trigger clicks", async () => {
+    storeState.meeting = {
+      meetingId: "m",
+      createdAt: "2026-04-30T08:00:00.000Z",
+      events: [
+        {
+          type: "meeting_started",
+          id: "e1",
+          ts: "2026-04-30T08:00:00.000Z",
+          notetaker: "Tom",
+        },
+      ],
+    };
+    const { container } = await mount();
+    expect(container.querySelector(".datetime-bubble")).toBeNull();
+
+    const trigger = container.querySelector(
+      "button.ts-trigger",
+    ) as HTMLButtonElement;
+    await fireEvent.click(trigger);
+    await tick();
+    expect(container.querySelector(".datetime-bubble")).not.toBeNull();
+
+    // Second click hides the bubble (toggle, not always-open).
+    await fireEvent.click(trigger);
+    await tick();
+    expect(container.querySelector(".datetime-bubble")).toBeNull();
+  });
+
+  it("does not commit until the Schedule button is clicked", async () => {
+    storeState.meeting = {
+      meetingId: "m",
+      createdAt: "2026-04-30T08:00:00.000Z",
+      events: [
+        {
+          type: "meeting_started",
+          id: "e1",
+          ts: "2026-04-30T08:00:00.000Z",
+          notetaker: "Tom",
+        },
+      ],
+    };
+    const { container } = await mount();
+    const trigger = container.querySelector(
+      "button.ts-trigger",
+    ) as HTMLButtonElement;
+    await fireEvent.click(trigger);
+    await tick();
+
+    // Picking a cell only mutates the bubble's draft.
+    const cell = container.querySelector(
+      ".datetime-bubble .cal-cell:not(.empty)",
+    ) as HTMLButtonElement;
+    await fireEvent.click(cell);
+    await tick();
+    expect(setScheduledStartAt).not.toHaveBeenCalled();
+
+    // Clicking Schedule fires the store setter once.
+    const schedule = container.querySelector(
+      "button.schedule-btn",
+    ) as HTMLButtonElement;
+    expect(schedule).not.toBeNull();
+    await fireEvent.click(schedule);
+    expect(setScheduledStartAt).toHaveBeenCalledTimes(1);
+  });
+
+  it("clear icon button calls clearScheduledStartAt when a schedule already exists", async () => {
     storeState.meeting = {
       meetingId: "m",
       createdAt: "2026-04-30T08:00:00.000Z",
       scheduledStartAt: "2026-04-30T15:00:00.000Z",
+      events: [
+        {
+          type: "meeting_started",
+          id: "e1",
+          ts: "2026-04-30T08:00:00.000Z",
+          notetaker: "Tom",
+        },
+      ],
+    };
+    const { container } = await mount();
+    const trigger = container.querySelector(
+      "button.ts-trigger",
+    ) as HTMLButtonElement;
+    await fireEvent.click(trigger);
+    await tick();
+
+    // Footer should be in the "schedule exists" shape: no Schedule
+    // text button, but a Clear icon button.
+    expect(container.querySelector("button.schedule-btn")).toBeNull();
+    const clear = container.querySelector(
+      'button[aria-label="Clear scheduled time"]',
+    ) as HTMLButtonElement;
+    expect(clear).not.toBeNull();
+
+    await fireEvent.click(clear);
+    expect(clearScheduledStartAt).toHaveBeenCalledTimes(1);
+    expect(setScheduledStartAt).not.toHaveBeenCalled();
+  });
+
+  it("removes the trigger once edits exist", async () => {
+    storeState.meeting = {
+      meetingId: "m",
+      createdAt: "2026-04-30T08:00:00.000Z",
       events: [
         {
           type: "meeting_started",
@@ -103,44 +237,19 @@ describe("MeetingMeta — scheduled but not started", () => {
         {
           type: "note_updated",
           id: "e2",
-          ts: "2026-04-30T15:05:00.000Z",
+          ts: "2026-04-30T08:01:00.000Z",
           noteId: "n1",
-          text: "first note",
+          text: "first",
         },
       ],
     };
     const { container } = await mount();
-
-    // Once the meeting has started, the clock icon goes away — the user
-    // is back in the regular live/idle/ended UI driven by edit events.
-    expect(container.querySelector(".scheduled-icon")).toBeNull();
+    expect(container.querySelector("button.ts-trigger")).toBeNull();
+    // Read-only timestamp is back in place.
+    expect(container.querySelector(".ts")).not.toBeNull();
   });
 
-  it("hides the clock once live input is registered (firstInputAt set, no events yet)", async () => {
-    // Edge: the user has typed but the editor's debounced commit hasn't
-    // landed any events yet. firstInputAt is the live signal that the
-    // meeting is no longer "scheduled but not started".
-    storeState.meeting = {
-      meetingId: "m",
-      createdAt: "2026-04-30T08:00:00.000Z",
-      scheduledStartAt: "2026-04-30T15:00:00.000Z",
-      events: [
-        {
-          type: "meeting_started",
-          id: "e1",
-          ts: "2026-04-30T08:00:00.000Z",
-          notetaker: "Tom",
-        },
-      ],
-    };
-    storeState.firstInputAt = "2026-04-30T15:01:00.000Z";
-    storeState.lastInputAt = "2026-04-30T15:01:00.000Z";
-    const { container } = await mount();
-
-    expect(container.querySelector(".scheduled-icon")).toBeNull();
-  });
-
-  it("falls back to the existing createdAt-only behaviour when no scheduledStartAt is set", async () => {
+  it("removes the trigger once live input is registered", async () => {
     storeState.meeting = {
       meetingId: "m",
       createdAt: "2026-04-30T08:00:00.000Z",
@@ -153,12 +262,9 @@ describe("MeetingMeta — scheduled but not started", () => {
         },
       ],
     };
+    storeState.firstInputAt = "2026-04-30T08:00:30.000Z";
+    storeState.lastInputAt = "2026-04-30T08:00:30.000Z";
     const { container } = await mount();
-
-    // No clock — this is just a fresh in-app meeting.
-    expect(container.querySelector(".scheduled-icon")).toBeNull();
-    // Timestamp is still rendered (createdAt fallback).
-    const ts = container.querySelector(".ts");
-    expect(ts?.textContent).toMatch(localHHMM("2026-04-30T08:00:00.000Z"));
+    expect(container.querySelector("button.ts-trigger")).toBeNull();
   });
 });
