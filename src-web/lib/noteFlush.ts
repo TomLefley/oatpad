@@ -98,10 +98,25 @@ export function createNoteFlushState(): NoteFlushMap {
 
 // Seeds the flush state from a freshly-loaded snapshot so the first
 // text-change does not emit spurious events comparing against an empty
-// runStartText. Seeded notes count as "already emitted" — the loaded
-// snapshot is itself a settled state, so a later removal should produce
-// a `note_deleted`.
-export function seedNoteFlushState(paragraphs: Paragraph[]): NoteFlushMap {
+// runStartText.
+//
+// `hasEmitted` is derived from `events` — only paragraphs whose noteId
+// already appears in a `note_updated` event get the flag, because those
+// are the paragraphs the consumer (e.g. an MCP client reading the events
+// log) actually knows about. A paragraph that's in the snapshot but
+// never produced a `note_updated` (e.g. crash-restart between the
+// snapshot debounce and the beforeunload flush, or the empty starter
+// paragraph of a fresh meeting) stays at `hasEmitted=false` so removing
+// it is silent rather than firing a phantom `note_deleted` for an id
+// the consumer never heard about.
+export function seedNoteFlushState(
+  paragraphs: Paragraph[],
+  events: readonly OatsEvent[] = [],
+): NoteFlushMap {
+  const everEmitted = new Set<string>();
+  for (const e of events) {
+    if (e.type === "note_updated") everEmitted.add(e.noteId);
+  }
   const state = createNoteFlushState();
   for (const p of paragraphs) {
     state.set(p.noteId, {
@@ -109,7 +124,7 @@ export function seedNoteFlushState(paragraphs: Paragraph[]): NoteFlushMap {
       lastText: p.markdown,
       dir: null,
       lastEmittedText: p.markdown,
-      hasEmitted: true,
+      hasEmitted: everEmitted.has(p.noteId),
     });
   }
   return state;

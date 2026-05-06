@@ -171,10 +171,26 @@ describe("Editor — onTextChange wiring", () => {
     expect(noteInput).not.toHaveBeenCalled();
   });
 
-  it("emits note_deleted when a paragraph is removed", async () => {
+  it("emits note_deleted when a paragraph the consumer knows about is removed", async () => {
     seedMeeting({
       snapshot: { ops: [{ insert: "one\ntwo\n" }] },
       paragraphIds: ["keep", "drop"],
+      events: [
+        {
+          type: "note_updated",
+          id: "u-keep",
+          ts: "2026-04-30T10:00:01.000Z",
+          noteId: "keep",
+          text: "one",
+        },
+        {
+          type: "note_updated",
+          id: "u-drop",
+          ts: "2026-04-30T10:00:02.000Z",
+          noteId: "drop",
+          text: "two",
+        },
+      ],
     });
     const { quill } = await mountEditor();
     appendEvents.mockClear();
@@ -189,6 +205,36 @@ describe("Editor — onTextChange wiring", () => {
     const deleted = events.filter((e) => e.type === "note_deleted");
     expect(deleted).toHaveLength(1);
     expect(deleted[0]).toMatchObject({ type: "note_deleted", noteId: "drop" });
+  });
+
+  it("does not emit note_deleted for a snapshot paragraph the events log has never mentioned", async () => {
+    // Snapshot/paragraphIds carry "drop" but no note_updated for it
+    // landed in events (e.g. crash-restart between snapshot debounce and
+    // the beforeunload flush). Removing that paragraph must not emit a
+    // phantom note_deleted referring to a noteId the consumer never
+    // heard about.
+    seedMeeting({
+      snapshot: { ops: [{ insert: "one\ntwo\n" }] },
+      paragraphIds: ["keep", "drop"],
+      events: [
+        {
+          type: "note_updated",
+          id: "u-keep",
+          ts: "2026-04-30T10:00:01.000Z",
+          noteId: "keep",
+          text: "one",
+        },
+      ],
+    });
+    const { quill } = await mountEditor();
+    appendEvents.mockClear();
+
+    quill.deleteText(4, 4, "user");
+    await tick();
+
+    const events = flatEvents();
+    const deleted = events.filter((e) => e.type === "note_deleted");
+    expect(deleted).toHaveLength(0);
   });
 });
 

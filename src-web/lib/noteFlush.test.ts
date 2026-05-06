@@ -947,6 +947,46 @@ describe("seedNoteFlushState", () => {
     const r = onTextChange(state, [p("a", "I've typed out halX")], io);
     expect(noteUpdates(r.events)).toEqual([]);
   });
+
+  it("emits note_deleted for a seeded paragraph that had a prior note_updated", () => {
+    const events: OatsEvent[] = [
+      {
+        type: "note_updated",
+        id: "u1",
+        ts: TS,
+        noteId: "a",
+        text: "hello world",
+      },
+    ];
+    const state = seedNoteFlushState([p("a", "hello world")], events);
+    const io = makeIO();
+    const out = onTextChange(state, [], io);
+    expect(eventTypes(out.events)).toEqual(["note_deleted"]);
+  });
+
+  it("does NOT emit note_deleted for a seeded paragraph the consumer never saw", () => {
+    // Snapshot/paragraphIds got persisted with a paragraph whose
+    // note_updated never made it into the events array — e.g. a
+    // crash-restart where the snapshot debounce wrote but the
+    // beforeunload flush never ran. The consumer reading the events log
+    // never heard about this noteId, so a `note_deleted` referring to
+    // it is just noise.
+    const state = seedNoteFlushState([p("a", "hello world")], []);
+    const io = makeIO();
+    const out = onTextChange(state, [], io);
+    expect(out.events).toEqual([]);
+  });
+
+  it("does NOT emit note_deleted for the auto-assigned paragraph of a fresh meeting", () => {
+    // Fresh meeting: paragraphIds=[] in the file, so reconcileNoteIds
+    // assigns a brand-new id to the empty starter paragraph. There is
+    // no events history for that id. Removing the paragraph (e.g. via
+    // an editor restructure) must not emit note_deleted.
+    const state = seedNoteFlushState([p("fresh-id", "")], []);
+    const io = makeIO();
+    const out = onTextChange(state, [], io);
+    expect(out.events).toEqual([]);
+  });
 });
 
 // -- M. Whitespace and unusual content ------------------------------------

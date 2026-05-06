@@ -138,7 +138,10 @@
       quill.setContents({ ops: [{ insert: "\n" }] } as unknown as never);
     }
     reconcileNoteIds(quill.root, uuid);
-    noteFlushState = seedNoteFlushState(readParagraphs(quill.root));
+    noteFlushState = seedNoteFlushState(
+      readParagraphs(quill.root),
+      meeting?.events ?? [],
+    );
     activeNoteId = null;
     suppressCommit = false;
     clearStaleEditorSelection();
