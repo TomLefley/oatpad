@@ -22,14 +22,21 @@ import { commonPrefixLen, commonSuffixLen } from "./commonAffix";
  * always emit if state has changed — the cross-word predicate is bypassed
  * because stepping away from the note is itself a meaningful boundary.
  *
+ * Paragraph creation is silent: a brand-new noteId gets tracked in state
+ * but never emits a marker event, and a paragraph that gets removed
+ * before any `note_updated` ever lands also produces no `note_deleted` —
+ * the consumer never heard about it, so the deletion is uninformative
+ * noise. A `note_deleted` only fires once the note has emitted at least
+ * one settled-state update.
+ *
  * # Public API
  *   - `createNoteFlushState`   — fresh empty Map for a new meeting.
  *   - `seedNoteFlushState`     — re-seed from a loaded snapshot so the
  *                                first text-change doesn't fire a spurious
  *                                emit comparing against `runStartText=""`.
  *   - `onTextChange`           — drive the state machine for one Quill
- *                                text-change. Emits note_created/updated/
- *                                deleted as appropriate.
+ *                                text-change. Emits note_updated /
+ *                                note_deleted as appropriate.
  *   - `flushNote` / `flushAll` — focus-loss / explicit flush. Idempotent.
  *   - `isCrossWord`            — pure predicate; exposed so tests and any
  *                                future caller (e.g. an MCP heuristic
@@ -71,6 +78,11 @@ export type NoteFlushState = {
   lastText: string;
   dir: "add" | "del" | null;
   lastEmittedText: string;
+  // Goes true the first time `emitLastText` actually pushes an event.
+  // Gates the `note_deleted` on paragraph removal — a paragraph that
+  // came and went without ever settling has nothing for the consumer
+  // to forget, so reporting its deletion is just noise.
+  hasEmitted: boolean;
 };
 
 export type NoteFlushMap = Map<string, NoteFlushState>;
@@ -86,7 +98,9 @@ export function createNoteFlushState(): NoteFlushMap {
 
 // Seeds the flush state from a freshly-loaded snapshot so the first
 // text-change does not emit spurious events comparing against an empty
-// runStartText.
+// runStartText. Seeded notes count as "already emitted" — the loaded
+// snapshot is itself a settled state, so a later removal should produce
+// a `note_deleted`.
 export function seedNoteFlushState(paragraphs: Paragraph[]): NoteFlushMap {
   const state = createNoteFlushState();
   for (const p of paragraphs) {
@@ -95,6 +109,7 @@ export function seedNoteFlushState(paragraphs: Paragraph[]): NoteFlushMap {
       lastText: p.markdown,
       dir: null,
       lastEmittedText: p.markdown,
+      hasEmitted: true,
     });
   }
   return state;
@@ -114,7 +129,6 @@ export function onTextChange(
 
     let entry = state.get(p.noteId);
     if (!entry) {
-      events.push(noteCreatedEvent(p.noteId, io));
       entry = freshEntry();
       state.set(p.noteId, entry);
     }
@@ -154,15 +168,17 @@ export function onTextChange(
   }
 
   for (const noteId of Array.from(state.keys())) {
-    if (!seenIds.has(noteId)) {
+    if (seenIds.has(noteId)) continue;
+    const entry = state.get(noteId);
+    if (entry?.hasEmitted) {
       events.push({
         type: "note_deleted",
         id: io.makeId(),
         ts: io.now(),
         noteId,
       });
-      state.delete(noteId);
     }
+    state.delete(noteId);
   }
 
   return { events };
@@ -229,11 +245,13 @@ export function isCrossWord(oldText: string, newText: string): boolean {
 // --- internals -----------------------------------------------------------
 
 function freshEntry(): NoteFlushState {
-  return { runStartText: "", lastText: "", dir: null, lastEmittedText: "" };
-}
-
-function noteCreatedEvent(noteId: string, io: FlushIO): OatsEvent {
-  return { type: "note_created", id: io.makeId(), ts: io.now(), noteId };
+  return {
+    runStartText: "",
+    lastText: "",
+    dir: null,
+    lastEmittedText: "",
+    hasEmitted: false,
+  };
 }
 
 function classifyChange(oldText: string, newText: string): "add" | "del" | "sub" {
@@ -265,6 +283,7 @@ function emitLastText(
     text: entry.lastText,
   });
   entry.lastEmittedText = entry.lastText;
+  entry.hasEmitted = true;
 }
 
 function tokenize(text: string): string[] {

@@ -47,7 +47,6 @@ function makeFile(id: string, title: string, createdAt: string): OatsFile {
     createdAt,
     events: [
       { type: "meeting_started", id: `${id}-s`, ts: createdAt, notetaker: "tester" },
-      { type: "note_created", id: `${id}-c`, ts: createdAt, noteId: "n1" },
       {
         type: "note_updated",
         id: `${id}-u`,

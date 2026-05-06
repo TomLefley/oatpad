@@ -166,42 +166,36 @@ describe("commonPrefixLen / commonSuffixLen", () => {
 
 // -- B. New-paragraph lifecycle ------------------------------------------
 
-describe("note_created lifecycle", () => {
-  it("emits note_created exactly once for a new noteId, with no text field", () => {
-    const { events } = runScenario([[p("a", "")]]);
-    expect(events.length).toBe(1);
-    expect(events[0]).toEqual({
-      type: "note_created",
-      id: "evt-1",
-      ts: TS,
-      noteId: "a",
-    });
-    expect("text" in events[0]).toBe(false);
+describe("new-paragraph lifecycle is silent", () => {
+  it("emits no event when a brand-new paragraph appears", () => {
+    const { events, state } = runScenario([[p("a", "")]]);
+    expect(events).toEqual([]);
+    // The note still gets tracked internally so subsequent edits diff
+    // against the right baseline.
+    expect(state.has("a")).toBe(true);
   });
 
-  it("never emits note_updated for an empty paragraph that is then removed", () => {
+  it("emits nothing when an empty paragraph appears and is removed", () => {
     const { events } = runScenario([
       [p("a", "")],
-      [], // paragraph removed
+      [], // paragraph removed before any settled state
     ]);
-    expect(eventTypes(events)).toEqual(["note_created", "note_deleted"]);
-    expect(noteUpdates(events)).toEqual([]);
+    expect(events).toEqual([]);
   });
 
-  it("emits note_created for two paragraphs created in one step", () => {
-    const { events } = runScenario([
-      [p("a", ""), p("b", "")],
-    ]);
-    expect(eventTypes(events)).toEqual(["note_created", "note_created"]);
+  it("emits no events when two paragraphs appear in one step", () => {
+    const { events, state } = runScenario([[p("a", ""), p("b", "")]]);
+    expect(events).toEqual([]);
+    expect(state.has("a") && state.has("b")).toBe(true);
   });
 
-  it("does not re-emit note_created for an existing noteId", () => {
+  it("emits nothing for a noteId that keeps getting typed into without settling", () => {
     const { events } = runScenario([
       [p("a", "")],
       [p("a", "h")],
       [p("a", "hi")],
     ]);
-    expect(events.filter((e) => e.type === "note_created").length).toBe(1);
+    expect(events).toEqual([]);
   });
 });
 
@@ -747,12 +741,13 @@ describe("multi-note state isolation", () => {
     ]);
   });
 
-  it("creating two paragraphs in one step emits two note_created events", () => {
-    const { events } = runScenario([
+  it("starts tracking each paragraph silently when it appears", () => {
+    const { events, state } = runScenario([
       [p("a", "")],
       [p("a", "hello"), p("b", "world")], // Enter splits paragraph; b is new
     ]);
-    expect(events.filter((e) => e.type === "note_created").length).toBe(2);
+    expect(events).toEqual([]);
+    expect(state.has("a") && state.has("b")).toBe(true);
   });
 });
 
@@ -867,39 +862,44 @@ describe("format-only and zero-length changes", () => {
 // -- K. Paragraph removal mid-edit ----------------------------------------
 
 describe("paragraph removal", () => {
-  it("removes from state and emits note_deleted", () => {
+  it("emits note_deleted once a settled state has been emitted", () => {
     const state = createNoteFlushState();
     const io = makeIO();
     runScenario([[p("a", "")], [p("a", "hello")]], state, io);
+    flushNote(state, "a", io); // settle "hello"
     const out = onTextChange(state, [], io);
     expect(eventTypes(out.events)).toEqual(["note_deleted"]);
     expect(state.has("a")).toBe(false);
   });
 
-  it("note_created followed immediately by note_deleted (never updated)", () => {
+  it("removes silently when a paragraph is created and deleted with no settled state", () => {
     const { events } = runScenario([[p("a", "")], []]);
-    expect(eventTypes(events)).toEqual(["note_created", "note_deleted"]);
+    expect(events).toEqual([]);
   });
 
-  it("multiple notes removed in one step yields one note_deleted per id", () => {
+  it("emits note_deleted only for paragraphs that had settled emits", () => {
     const state = createNoteFlushState();
     const io = makeIO();
-    runScenario(
-      [[p("a", ""), p("b", ""), p("c", "")]],
-      state,
-      io,
-    );
+    // Three paragraphs appear; only "a" settles before everything is removed.
+    runScenario([[p("a", ""), p("b", ""), p("c", "")]], state, io);
+    runScenario([[p("a", "alpha"), p("b", ""), p("c", "")]], state, io);
+    flushNote(state, "a", io);
     const out = onTextChange(state, [], io);
-    expect(out.events.filter((e) => e.type === "note_deleted").length).toBe(3);
+    expect(out.events.filter((e) => e.type === "note_deleted").length).toBe(1);
+    expect(
+      out.events.find((e) => e.type === "note_deleted") as
+        | { noteId: string }
+        | undefined,
+    ).toMatchObject({ noteId: "a" });
   });
 
-  it("removed mid-active-run still flushes deletion (not updated)", () => {
+  it("removes a note in an active add run silently (no settled state to forget)", () => {
     const state = createNoteFlushState();
     const io = makeIO();
     runScenario([[p("a", "")], [p("a", "hello world")]], state, io);
     // Note in active add run, never flushed. Now removed.
     const out = onTextChange(state, [], io);
-    expect(eventTypes(out.events)).toEqual(["note_deleted"]);
+    expect(out.events).toEqual([]);
     expect(state.has("a")).toBe(false);
   });
 });
@@ -1024,8 +1024,8 @@ describe("long-running session", () => {
       events.push(...out.events);
     }
 
-    // Within-word throughout: only note_created so far.
-    expect(eventTypes(events)).toEqual(["note_created"]);
+    // Within-word throughout: no events at all until flush.
+    expect(events).toEqual([]);
 
     const flushed = flushAll(state, io);
     expect(noteUpdates(flushed.events).length).toBe(1);

@@ -15,14 +15,8 @@ const valid = {
       notetaker: "Tom",
     },
     {
-      type: "note_created",
-      id: "e2",
-      ts: "2026-04-23T10:00:01.000Z",
-      noteId: "n1",
-    },
-    {
       type: "note_updated",
-      id: "e3",
+      id: "e2",
       ts: "2026-04-23T10:00:02.000Z",
       noteId: "n1",
       text: "hello",
@@ -40,7 +34,7 @@ describe("parseOatsFile", () => {
   it("accepts a valid file", () => {
     const file = parseOatsFile(JSON.stringify(valid));
     expect(file.notetaker).toBe("Tom");
-    expect(file.events).toHaveLength(3);
+    expect(file.events).toHaveLength(2);
     expect(file.snapshot.ops[0]).toEqual({ insert: "hello\n" });
   });
 
@@ -118,32 +112,27 @@ describe("parseOatsFile", () => {
     ).toThrow(/text/);
   });
 
-  it("accepts note_created without text (no longer carries content)", () => {
-    const file = parseOatsFile(
-      withChange({
-        events: [{ type: "note_created", id: "x", ts: "t", noteId: "n" }],
-      }),
-    );
-    expect(file.events[0]).toEqual({
-      type: "note_created",
-      id: "x",
-      ts: "t",
-      noteId: "n",
-    });
-  });
-
-  it("does not enforce 'no extra fields' on note_created (legacy text rides along)", () => {
-    // The validator only checks required fields exist. A legacy event with
-    // extra `text` parses without error — its consumers ignore the field.
-    // Documents this so a future strict-mode tightening is intentional.
+  it("silently drops legacy note_created events on parse", () => {
+    // `note_created` was retired because it produced noisy create/delete
+    // pairs around accidental keypresses. The parser keeps accepting it
+    // for backward compat with existing files, but filters it out so
+    // consumers never see it again.
     const file = parseOatsFile(
       withChange({
         events: [
-          { type: "note_created", id: "x", ts: "t", noteId: "n", text: "hi" },
+          { type: "note_created", id: "x", ts: "t", noteId: "n" },
+          {
+            type: "note_updated",
+            id: "y",
+            ts: "t2",
+            noteId: "n",
+            text: "hi",
+          },
         ],
       }),
     );
-    expect((file.events[0] as { text?: unknown }).text).toBe("hi");
+    expect(file.events).toHaveLength(1);
+    expect(file.events[0]).toMatchObject({ type: "note_updated", text: "hi" });
   });
 
   it("rejects snapshot without ops array", () => {

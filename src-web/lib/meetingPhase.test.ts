@@ -26,8 +26,8 @@ describe("editBounds", () => {
   it("returns first and last edit timestamp from committed events", () => {
     const out = editBounds(
       [
-        ev({ type: "note_created", id: "1", ts: "2026-04-27T10:00:00Z", noteId: "n1" }),
-        ev({ type: "note_updated", id: "2", ts: "2026-04-27T10:00:05Z", noteId: "n1", text: "ab" }),
+        ev({ type: "note_updated", id: "1", ts: "2026-04-27T10:00:00Z", noteId: "n1", text: "ab" }),
+        ev({ type: "note_updated", id: "2", ts: "2026-04-27T10:00:05Z", noteId: "n1", text: "abcd" }),
         ev({ type: "note_deleted", id: "3", ts: "2026-04-27T10:00:10Z", noteId: "n1" }),
       ],
       null,
@@ -40,7 +40,7 @@ describe("editBounds", () => {
   it("blends in live input markers — earlier first, later last", () => {
     const out = editBounds(
       [
-        ev({ type: "note_created", id: "1", ts: "2026-04-27T10:00:05Z", noteId: "n1" }),
+        ev({ type: "note_updated", id: "1", ts: "2026-04-27T10:00:05Z", noteId: "n1", text: "x" }),
       ],
       "2026-04-27T10:00:00Z",
       "2026-04-27T10:00:10Z",
@@ -52,7 +52,7 @@ describe("editBounds", () => {
   it("does not regress bounds when live markers are inside the committed window", () => {
     const out = editBounds(
       [
-        ev({ type: "note_created", id: "1", ts: "2026-04-27T10:00:00Z", noteId: "n1" }),
+        ev({ type: "note_updated", id: "1", ts: "2026-04-27T10:00:00Z", noteId: "n1", text: "a" }),
         ev({ type: "note_updated", id: "2", ts: "2026-04-27T10:00:30Z", noteId: "n1", text: "abc" }),
       ],
       "2026-04-27T10:00:10Z",

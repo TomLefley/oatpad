@@ -4,7 +4,6 @@
 export type {
   FileLoadedEvent,
   MeetingStartedEvent,
-  NoteCreatedEvent,
   NoteDeletedEvent,
   NoteUpdatedEvent,
   OatsEvent,

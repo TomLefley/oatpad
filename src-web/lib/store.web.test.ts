@@ -219,12 +219,6 @@ describe("replaceMeetingFromFile", () => {
           notetaker: "FromDisk",
         },
         {
-          type: "note_created",
-          id: "e2",
-          ts: "2026-04-26T15:00:01.000Z",
-          noteId: "n1",
-        },
-        {
           type: "note_updated",
           id: "e3",
           ts: "2026-04-26T15:00:02.000Z",

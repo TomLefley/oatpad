@@ -11,11 +11,7 @@ export function editBounds(
   let first: string | null = null;
   let last: string | null = null;
   for (const e of events) {
-    if (
-      e.type === "note_created" ||
-      e.type === "note_updated" ||
-      e.type === "note_deleted"
-    ) {
+    if (e.type === "note_updated" || e.type === "note_deleted") {
       if (!first || e.ts < first) first = e.ts;
       if (!last || e.ts > last) last = e.ts;
     }

@@ -174,9 +174,11 @@ export function parseOatsFile(text: string): OatsFile {
   if (!Array.isArray(parsed.events)) {
     throw new Error("`events` must be an array.");
   }
-  const events: OatsEvent[] = parsed.events.map((ev, i) => {
+  const events: OatsEvent[] = [];
+  parsed.events.forEach((ev, i) => {
     try {
-      return validateEvent(ev);
+      const validated = validateEvent(ev);
+      if (validated) events.push(validated);
     } catch (err) {
       throw new Error(`events[${i}] invalid: ${(err as Error).message}`);
     }
@@ -218,15 +220,26 @@ export function parseOatsFile(text: string): OatsFile {
 // lockstep with the type.
 const EVENT_TYPE_NAMES: Record<OatsEvent["type"], true> = {
   meeting_started: true,
-  note_created: true,
   note_updated: true,
   note_deleted: true,
   file_loaded: true,
 };
 
-function validateEvent(raw: unknown): OatsEvent {
+// Legacy event types that older `.oats` files may still contain. We
+// accept them on read but drop them silently — `note_created` carried no
+// content beyond a timestamp marker and was retired because empty
+// create/delete pairs around accidental keypresses showed up as noise
+// in MCP consumers.
+const LEGACY_EVENT_TYPES = new Set(["note_created"]);
+
+// Returns null for legacy events that should be silently dropped.
+function validateEvent(raw: unknown): OatsEvent | null {
   if (!isObject(raw)) throw new Error("not an object");
-  if (typeof raw.type !== "string" || !(raw.type in EVENT_TYPE_NAMES)) {
+  if (typeof raw.type !== "string") {
+    throw new Error(`unknown type: ${String(raw.type)}`);
+  }
+  if (LEGACY_EVENT_TYPES.has(raw.type)) return null;
+  if (!(raw.type in EVENT_TYPE_NAMES)) {
     throw new Error(`unknown type: ${String(raw.type)}`);
   }
   if (typeof raw.id !== "string") throw new Error("missing id");
@@ -235,9 +248,6 @@ function validateEvent(raw: unknown): OatsEvent {
   switch (raw.type) {
     case "meeting_started":
       if (typeof raw.notetaker !== "string") throw new Error("missing notetaker");
-      return raw as unknown as OatsEvent;
-    case "note_created":
-      if (typeof raw.noteId !== "string") throw new Error("missing noteId");
       return raw as unknown as OatsEvent;
     case "note_updated":
       if (typeof raw.noteId !== "string") throw new Error("missing noteId");

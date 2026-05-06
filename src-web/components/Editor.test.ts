@@ -123,28 +123,34 @@ describe("Editor — mount and reload", () => {
 });
 
 describe("Editor — onTextChange wiring", () => {
-  it("flows a freshly-split paragraph through reconcile + readParagraphs to appendEvents", async () => {
+  it("splits a paragraph silently, then flows typed content to appendEvents on flush", async () => {
     seedMeeting({
       snapshot: { ops: [{ insert: "first\n" }] },
       paragraphIds: ["pid-first"],
     });
-    const { quill } = await mountEditor();
+    const { component, quill } = await mountEditor();
     appendEvents.mockClear();
     setSnapshot.mockClear();
 
     // Pressing Enter splits the paragraph; the new sibling gets a fresh
-    // id via reconcileNoteIds, and the integration must surface that as a
-    // `note_created` reaching appendEvents.
+    // id via reconcileNoteIds. The split itself emits no event — the
+    // empty paragraph is just tracked internally — so we type something
+    // and flush to verify the new noteId reached the pipeline.
     quill.insertText("first".length, "\n", "user");
     await tick();
 
+    expect(flatEvents()).toEqual([]);
+
+    quill.insertText("first\n".length, "second", "user");
+    await tick();
+
+    (component as unknown as { flush: () => void }).flush();
     const events = flatEvents();
-    const created = events.filter((e) => e.type === "note_created");
-    expect(created).toHaveLength(1);
-    expect(created[0]).toMatchObject({
-      type: "note_created",
-      noteId: expect.stringMatching(/.+/),
-    });
+    const updated = events.filter((e) => e.type === "note_updated");
+    const newParagraph = updated.find((e) => e.text === "second");
+    expect(newParagraph).toBeDefined();
+    expect(newParagraph!.noteId).not.toBe("pid-first");
+    expect(newParagraph!.noteId).toMatch(/.+/);
   });
 
   it("calls store.noteInput on user-driven text changes (live input marker)", async () => {

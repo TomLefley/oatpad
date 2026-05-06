@@ -102,8 +102,9 @@ Notes are saved as `.oats` files (JSON):
 }
 ```
 
-Event types: `meeting_started`, `note_created`, `note_updated`, `note_deleted`,
-`file_loaded`.
+Event types: `meeting_started`, `note_updated`, `note_deleted`, `file_loaded`.
+Legacy meetings may also contain `note_created`; the parser drops these on
+read since they carried no content beyond a timestamp marker.
 
 ## How capture works
 

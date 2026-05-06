@@ -15,13 +15,6 @@ export type MeetingStartedEvent = {
   notetaker: string;
 };
 
-export type NoteCreatedEvent = {
-  type: "note_created";
-  id: string;
-  ts: string;
-  noteId: string;
-};
-
 export type NoteUpdatedEvent = {
   type: "note_updated";
   id: string;
@@ -46,7 +39,6 @@ export type FileLoadedEvent = {
 
 export type OatsEvent =
   | MeetingStartedEvent
-  | NoteCreatedEvent
   | NoteUpdatedEvent
   | NoteDeletedEvent
   | FileLoadedEvent;
