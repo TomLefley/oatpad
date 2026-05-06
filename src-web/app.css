@@ -57,6 +57,49 @@
     var(--tray-search-center) + var(--icon-size) / 2
     + var(--icon-gap) + var(--icon-size) / 2
   );
+
+  /* Shared animation tokens. Components reach for these instead of
+     inlining literal durations so the app's motion language stays
+     coherent when we tune it. Names describe intent, not value:
+     a "pop" should feel like a pop everywhere it's used.
+
+       --anim-fast       cheap hover / colour transitions (120ms)
+       --anim-slide      sidebar/spacer height changes (180ms)
+       --anim-pop        bubble entry pop (160ms)
+       --anim-wobble     list / editor settle wobble (340ms)
+       --anim-dot        notification-dot pop-in (220ms)
+       --anim-collapse   header collapse-tray hold window (600ms)
+       --anim-wobble-window
+                         time the wobble class stays on after a
+                         spacer close (700ms — long enough for the
+                         staggered settle to finish)
+
+     Easings:
+       --ease-spring     gentle overshoot, bubble open / spacer
+       --ease-bounce     pronounced overshoot, list / editor settle
+
+     The wobble vertical amplitudes for the editor area mirror the
+     list's `--amp` formula: a few px max with a gentle decay so deep
+     elements settle quietly. */
+  --anim-fast: 120ms;
+  --anim-slide: 180ms;
+  --anim-pop: 160ms;
+  --anim-wobble: 340ms;
+  --anim-dot: 220ms;
+  --anim-collapse: 600ms;
+  --anim-wobble-window: 700ms;
+  --ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.32, 1.85, 0.6, 1);
+
+  /* Bubble layout atoms — picked to match SearchBubble so every
+     drop-down bubble in the app reads as the same UI primitive. */
+  --bubble-radius: 14px;
+  --bubble-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
+  /* Vertical breathing above the bubble's body — the area the arrow
+     occupies. Single number used by both SearchBubble and
+     DateTimeBubble so their arrow tips line up. */
+  --bubble-arrow-padding: 6px;
 }
 
 @media (prefers-color-scheme: dark) {

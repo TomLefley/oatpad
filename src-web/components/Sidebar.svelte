@@ -52,7 +52,11 @@
   // the larger of the two so the meeting list slides clear regardless of
   // which bubble is open. SPACER_OVERHEAD covers the bubble's vertical
   // padding (8 + 6) plus body padding (6 + 8) plus 4px breathing.
+  // WOBBLE_WINDOW_MS is the duration of the per-row settle-in animation
+  // — kept in JS rather than CSS because the timer that clears the
+  // wobble flag has to outlast the staggered-row tail.
   const SPACER_OVERHEAD = 24;
+  const WOBBLE_WINDOW_MS = 700;
   let searchContentHeight = $state(22);
   let settingsContentHeight = $state(96);
   const searchSpacer = $derived(
@@ -93,7 +97,7 @@
       if (listWobbleTimer) clearTimeout(listWobbleTimer);
       listWobbleTimer = setTimeout(() => {
         listWobbling = false;
-      }, 700);
+      }, WOBBLE_WINDOW_MS);
     });
   });
 
@@ -169,6 +173,6 @@
      springy feel. */
   .search-spacer {
     flex-shrink: 0;
-    transition: height 140ms cubic-bezier(0.34, 1.25, 0.64, 1);
+    transition: height var(--anim-slide) var(--ease-spring);
   }
 </style>

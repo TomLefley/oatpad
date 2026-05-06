@@ -41,8 +41,19 @@
     onCommit: (iso: string) => void;
     onClose: () => void;
     onClear: () => void;
+    // Bound by the host so a sibling spacer can size itself against
+    // the bubble's measured body height. Same pattern SearchBubble
+    // uses to drive the sidebar's spacer.
+    contentHeight?: number;
   };
-  let { value, hasSchedule, onCommit, onClose, onClear }: Props = $props();
+  let {
+    value,
+    hasSchedule,
+    onCommit,
+    onClose,
+    onClear,
+    contentHeight = $bindable(0),
+  }: Props = $props();
 
   function pad(n: number): string {
     return String(n).padStart(2, "0");
@@ -132,7 +143,7 @@
   onkeydown={handleKeydown}
 >
   <span class="bubble-arrow" aria-hidden="true"></span>
-  <div class="bubble-body">
+  <div class="bubble-body" bind:clientHeight={contentHeight}>
     <div class="cal">
       <div class="cal-header">
         <button
@@ -224,14 +235,20 @@
 
 <style>
   .datetime-bubble {
-    --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
+    /* Sits in the editor area below the header, not in the header
+       itself: the parent (.editor-wrap) anchors it via position:
+       relative so the bubble's top:0 lands at the same Y as
+       SearchBubble's top:0 in the sidebar. Both bubbles therefore
+       share a common visual baseline below the header. */
     position: absolute;
-    top: calc(100% + 8px);
-    left: 12px;
+    top: 0;
+    left: 16px;
     z-index: 5;
-    /* Mirror SearchBubble's pop entrance for visual continuity. */
-    transform-origin: 24px 0;
-    animation: dt-pop-in 160ms linear backwards;
+    padding-top: var(--bubble-arrow-padding);
+    /* Pop emanates from the arrow above the bubble body, mirroring
+       SearchBubble's transform-origin pattern. */
+    transform-origin: calc(18px + var(--bubble-arrow-half)) 0;
+    animation: dt-pop-in var(--anim-pop) linear backwards;
     outline: none;
   }
   @keyframes dt-pop-in {
@@ -252,19 +269,21 @@
   }
   .bubble-arrow {
     position: absolute;
-    top: -6px;
+    top: 0;
     left: 18px;
     width: 0;
     height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-bottom: 6px solid var(--bubble-bg);
+    border-left: var(--bubble-arrow-half) solid transparent;
+    border-right: var(--bubble-arrow-half) solid transparent;
+    border-bottom: var(--bubble-arrow-half) solid var(--bubble-bg);
   }
   .bubble-body {
     background: var(--bubble-bg);
-    border-radius: 14px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-    padding: 8px 10px 10px;
+    border-radius: var(--bubble-radius);
+    box-shadow: var(--bubble-shadow);
+    /* Match SearchBubble's body padding so internal breathing reads
+       the same in both bubbles. */
+    padding: 6px 10px 8px;
     width: 240px;
   }
   .cal-header {
@@ -293,8 +312,8 @@
     cursor: pointer;
     flex-shrink: 0;
     transition:
-      color 120ms ease,
-      background-color 120ms ease;
+      color var(--anim-fast) ease,
+      background-color var(--anim-fast) ease;
   }
   .cal-nav:hover {
     color: var(--accent);
@@ -332,7 +351,7 @@
     color: var(--fg);
     cursor: pointer;
     box-sizing: border-box;
-    transition: background-color 120ms ease;
+    transition: background-color var(--anim-fast) ease;
   }
   .cal-cell:hover:not(.empty):not(.selected) {
     background: color-mix(in srgb, var(--fg) 10%, transparent);
@@ -371,7 +390,7 @@
     padding: 2px 6px;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 120ms ease;
+    transition: background-color var(--anim-fast) ease;
   }
   .time-input:hover,
   .time-input:focus {
@@ -410,8 +429,8 @@
     border-radius: 6px;
     color: color-mix(in srgb, var(--fg) 75%, transparent);
     transition:
-      color 120ms ease,
-      background-color 120ms ease;
+      color var(--anim-fast) ease,
+      background-color var(--anim-fast) ease;
   }
   /* Pending-commit indicator — same shape and pop animation as the
      header notification dot so the language is consistent across
@@ -427,7 +446,8 @@
     background: var(--accent);
     box-shadow: 0 0 0 1.5px var(--bubble-bg);
     pointer-events: none;
-    animation: dt-dot-pop 220ms cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
+    animation: dt-dot-pop var(--anim-dot) cubic-bezier(0.34, 1.5, 0.64, 1)
+      backwards;
   }
   @keyframes dt-dot-pop {
     0% {

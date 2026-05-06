@@ -29,6 +29,11 @@
     // the underlying state directly and the dot is just clutter.
     searchHasFilter?: boolean;
     updateReady?: boolean;
+    // Schedule bubble lives at App level (so opening it can spacer the
+    // editor). The Header just forwards the toggle through MeetingMeta's
+    // trigger button.
+    scheduleBubbleOpen?: boolean;
+    ontogglescheduleBubble?: () => void;
   };
   let {
     onnew,
@@ -43,6 +48,8 @@
     ontogglesettings,
     searchHasFilter = false,
     updateReady = false,
+    scheduleBubbleOpen = false,
+    ontogglescheduleBubble,
   }: Props = $props();
   const showSearchDot = $derived(searchHasFilter && !searchOpen);
   const showSettingsDot = $derived(updateReady && !settingsOpen);
@@ -55,6 +62,10 @@
   // when the sidebar closes. (CSS animations only fire on class-add, not on
   // class-removal, so we add a transient `collapsing` flag for the duration
   // of the animation.)
+  // Mirrors the CSS --anim-collapse token (which the .bouncing-out
+  // animation is keyed off of) — kept in sync manually so the JS timer
+  // outlasts the CSS animation.
+  const COLLAPSE_HOLD_MS = 600;
   let prevExpanded: boolean | null = null;
   let collapsing = $state(false);
   let collapsingTimer: ReturnType<typeof setTimeout> | null = null;
@@ -71,10 +82,10 @@
         // Hold the class for the full animation window: 420ms duration
         // plus the longest per-icon stagger (idx 3 × 45ms = 135ms) plus
         // a touch of slack so the trailing icon's tail oscillation is
-        // included.
+        // included. Sourced from the --anim-collapse token.
         collapsingTimer = setTimeout(() => {
           collapsing = false;
-        }, 600);
+        }, COLLAPSE_HOLD_MS);
       } else if (collapsingTimer) {
         clearTimeout(collapsingTimer);
         collapsingTimer = null;
@@ -150,7 +161,10 @@
         </button>
       </div>
     </div>
-    <MeetingMeta />
+    <MeetingMeta
+      {scheduleBubbleOpen}
+      onToggleScheduleBubble={ontogglescheduleBubble}
+    />
     <div class="spacer" data-tauri-drag-region></div>
     {#if showTitle}
       <OatpadTitle size="header" />
@@ -279,7 +293,7 @@
     background: var(--accent);
     box-shadow: 0 0 0 1.5px var(--surface);
     pointer-events: none;
-    animation: dot-pop 220ms cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
+    animation: dot-pop var(--anim-dot) cubic-bezier(0.34, 1.5, 0.64, 1) backwards;
   }
   @keyframes dot-pop {
     0% {

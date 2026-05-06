@@ -33,6 +33,15 @@
   // them. Focus-loss / blur / explicit flush still emit synchronously.
   const IDLE_EMIT_MS = 1500;
 
+  type Props = {
+    // True when the schedule bubble has just closed: triggers a one-shot
+    // settle animation on the title + editor body so they bounce back into
+    // place after riding the spacer's slide. Mirrors the meeting list's
+    // wobble pattern. Cleared by App after the animation window.
+    wobbling?: boolean;
+  };
+  let { wobbling = false }: Props = $props();
+
   let container: HTMLDivElement | undefined = $state();
   let quill: Quill | null = null;
   let noteFlushState: NoteFlushMap = createNoteFlushState();
@@ -362,7 +371,7 @@
   });
 </script>
 
-<div class="editor-wrap">
+<div class="editor-wrap" class:wobbling>
   <MeetingName />
   <div bind:this={container} class="editor"></div>
 </div>
@@ -374,6 +383,29 @@
     flex: 1;
     min-height: 0;
     background: var(--surface);
+  }
+  /* On schedule-bubble close, the title and editor body run a one-shot
+     bounce animation as they ride the spacer back up — same easing,
+     amplitudes and stagger formula as MeetingList's `.list.wobbling .row`
+     so the two settles read as the same UI motif. */
+  .editor-wrap.wobbling :global(.meeting-name),
+  .editor-wrap.wobbling .editor {
+    animation: editorSettle var(--anim-wobble) var(--ease-bounce) backwards;
+  }
+  .editor-wrap.wobbling :global(.meeting-name) {
+    --amp: 14px;
+  }
+  .editor-wrap.wobbling .editor {
+    --amp: 10px;
+    animation-delay: 30ms;
+  }
+  @keyframes editorSettle {
+    0% {
+      transform: translateY(var(--amp));
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
   .editor {
     flex: 1;

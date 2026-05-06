@@ -163,7 +163,7 @@
      overshoots back through zero and lets it ring out to rest. */
   .list.wobbling .row {
     --amp: max(4px, calc(20px - var(--idx, 0) * 1.6px));
-    animation: listSettle 340ms cubic-bezier(0.32, 1.85, 0.6, 1) backwards;
+    animation: listSettle var(--anim-wobble) var(--ease-bounce) backwards;
     animation-delay: calc(var(--idx, 0) * 18ms);
   }
   @keyframes listSettle {
@@ -227,7 +227,7 @@
     align-items: center;
     margin-right: 4px;
     color: color-mix(in srgb, var(--muted) 80%, transparent);
-    transition: transform 160ms ease;
+    transition: transform var(--anim-pop) ease;
   }
   /* Slide alongside the time column when the trash icon swings in. */
   .row-right:hover .scheduled-icon,

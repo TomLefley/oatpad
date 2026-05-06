@@ -4,7 +4,9 @@
   import Sidebar from "./components/Sidebar.svelte";
   import GettingStarted from "./components/GettingStarted.svelte";
   import Coachmark from "./components/Coachmark.svelte";
+  import DateTimeBubble from "./components/DateTimeBubble.svelte";
   import * as store from "./lib/store.svelte";
+  import { editBounds } from "./lib/meetingPhase";
   import { saveFile, loadFile } from "./lib/file";
   import { isNative } from "./lib/platform";
   import { isFreshMode } from "./lib/freshMode";
@@ -60,6 +62,107 @@
     if (searchOpen) searchOpen = false;
     settingsOpen = !settingsOpen;
   }
+
+  // Schedule bubble lives at App level so opening it can push the
+  // editor area down via a spacer in .main (mirrors how the sidebar's
+  // bubbles spacer the meeting list). The trigger button is in
+  // MeetingMeta inside the header — it just calls toggleScheduleBubble.
+  let scheduleBubbleOpen = $state(false);
+  // Measured by the bubble, used to size the editor's pushdown spacer
+  // (plus SCHEDULE_SPACER_OVERHEAD for arrow/padding/breathing).
+  let scheduleBubbleHeight = $state(0);
+  const SCHEDULE_SPACER_OVERHEAD = 24;
+  // One-shot wobble that runs on the editor area when the bubble closes,
+  // mirroring the meeting list's settle. Cleared after WOBBLE_WINDOW_MS
+  // so the keyframes can fire again on the next close.
+  const SCHEDULE_WOBBLE_WINDOW_MS = 700;
+  let scheduleWobbling = $state(false);
+  let scheduleWobbleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Editing the schedule is only available while the meeting is
+  // empty. Mirror MeetingMeta's `isEmpty` derivation here so App can
+  // render the bubble against the same condition.
+  const scheduleBounds = $derived(
+    editBounds(
+      store.state.meeting?.events ?? [],
+      store.state.firstInputAt,
+      store.state.lastInputAt,
+    ),
+  );
+  const scheduleIsEmpty = $derived(scheduleBounds.first === null);
+  const scheduleBubbleValue = $derived(
+    store.state.meeting?.scheduledStartAt ??
+      store.state.meeting?.createdAt ??
+      "",
+  );
+  const scheduleHasSchedule = $derived(
+    !!store.state.meeting?.scheduledStartAt,
+  );
+
+  function toggleScheduleBubble(): void {
+    if (!scheduleIsEmpty) return;
+    scheduleBubbleOpen = !scheduleBubbleOpen;
+  }
+  function closeScheduleBubble(): void {
+    scheduleBubbleOpen = false;
+  }
+  function commitSchedule(iso: string): void {
+    store.setScheduledStartAt(iso);
+    scheduleBubbleOpen = false;
+  }
+  function clearSchedule(): void {
+    store.clearScheduledStartAt();
+    scheduleBubbleOpen = false;
+  }
+
+  // Flip the wobble flag whenever the bubble transitions open → closed
+  // so the editor's title + body run a one-shot settle. Same pattern
+  // the sidebar uses for its meeting list. prevScheduleOpen is plain
+  // `let` (not $state) so the effect doesn't track its own writes.
+  let prevScheduleOpen = false;
+  $effect(() => {
+    const justClosed = prevScheduleOpen && !scheduleBubbleOpen;
+    prevScheduleOpen = scheduleBubbleOpen;
+    if (!justClosed) return;
+    scheduleWobbling = false;
+    requestAnimationFrame(() => {
+      scheduleWobbling = true;
+      if (scheduleWobbleTimer) clearTimeout(scheduleWobbleTimer);
+      scheduleWobbleTimer = setTimeout(() => {
+        scheduleWobbling = false;
+      }, SCHEDULE_WOBBLE_WINDOW_MS);
+    });
+  });
+
+  // Auto-close the bubble whenever the user is no longer allowed to
+  // edit the schedule (typed something, started a new meeting that's
+  // since been touched, etc.).
+  $effect(() => {
+    if (!scheduleIsEmpty && scheduleBubbleOpen) {
+      scheduleBubbleOpen = false;
+    }
+  });
+
+  // Click-outside dismissal — listen on mousedown so the bubble closes
+  // before any underlying click handlers fire focus shifts.
+  $effect(() => {
+    if (!scheduleBubbleOpen) return;
+    function onDown(e: MouseEvent): void {
+      const target = e.target as Element | null;
+      if (!target) return;
+      if (target.closest?.("[data-schedule-trigger]")) return;
+      if (target.closest?.(".datetime-bubble")) return;
+      scheduleBubbleOpen = false;
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  });
+
+  const scheduleSpacer = $derived(
+    scheduleBubbleOpen
+      ? Math.max(48, scheduleBubbleHeight + SCHEDULE_SPACER_OVERHEAD)
+      : 0,
+  );
 
   // The icon tray needs to clear the macOS traffic lights on its left
   // (--traffic-light-clearance, 92px in app.css) and fit four icon slots
@@ -194,6 +297,8 @@
     ontogglesettings={openSettings}
     {searchHasFilter}
     {updateReady}
+    {scheduleBubbleOpen}
+    ontogglescheduleBubble={toggleScheduleBubble}
   />
   <div class="body">
     {#if isNative}
@@ -210,8 +315,26 @@
       />
     {/if}
     <div class="main">
+      <!-- Schedule spacer + bubble. Spacer grows when the bubble opens
+           so the editor title/body slide down out of the way; bubble is
+           absolutely positioned over the spacer with its arrow at top:0
+           so its visual baseline matches SearchBubble's. -->
+      <div
+        class="schedule-spacer"
+        style:height="{scheduleSpacer}px"
+      ></div>
+      {#if scheduleBubbleOpen && scheduleBubbleValue}
+        <DateTimeBubble
+          value={scheduleBubbleValue}
+          hasSchedule={scheduleHasSchedule}
+          onCommit={commitSchedule}
+          onClose={closeScheduleBubble}
+          onClear={clearSchedule}
+          bind:contentHeight={scheduleBubbleHeight}
+        />
+      {/if}
       {#if store.state.meeting}
-        <Editor bind:this={editor} />
+        <Editor bind:this={editor} wobbling={scheduleWobbling} />
       {:else}
         <GettingStarted onnew={handleNew} onopen={handleOpen} />
       {/if}
@@ -264,9 +387,16 @@
     min-height: 0;
   }
   .main {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex: 1;
     min-width: 0;
+  }
+  /* Pushdown spacer for the schedule bubble. Same easing as the
+     sidebar's spacer so both bubbles glide on identical springs. */
+  .schedule-spacer {
+    flex-shrink: 0;
+    transition: height var(--anim-slide) var(--ease-spring);
   }
 </style>

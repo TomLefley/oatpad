@@ -247,9 +247,8 @@
     z-index: 1;
   }
   .search-bubble {
-    --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
     position: relative;
-    padding-top: 6px;
+    padding-top: var(--bubble-arrow-padding);
     /* Pop emanates from just below the search icon, where the arrow sits. */
     transform-origin: calc(
       100% - (var(--tray-search-center) - var(--bubble-margin))
@@ -261,7 +260,7 @@
        guarantees the 0% keyframe is painted from the very first frame.
        The 30ms delay lets the spacer's slide get started, so the bubble
        only becomes visible once there's space for it. */
-    animation: pop-in 160ms linear 30ms backwards;
+    animation: pop-in var(--anim-pop) linear 30ms backwards;
     outline: none;
   }
   /* Two-phase pop: ease-out launch from 0.58 scale, overshoot to 1.07 at
@@ -304,7 +303,7 @@
        text-mode body (~36px tall) reads as a pill (corners ≈ half-height)
        and the date-mode body reads as a softly-rounded rectangle. */
     border-radius: 18px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--bubble-shadow);
     /* Unified padding so contents don't horizontally jog when modes switch.
        6/10/8 is a compromise: tight enough that the text-mode pill stays
        slim and roomy enough that the calendar grid below has breathing
@@ -316,7 +315,7 @@
      Matched timing/easing with the spacer means they move as one. */
   .content-stack {
     position: relative;
-    transition: height 180ms cubic-bezier(0.34, 1.25, 0.64, 1);
+    transition: height var(--anim-slide) var(--ease-spring);
   }
   .text-row,
   .cal {
@@ -326,7 +325,7 @@
     right: 0;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 150ms ease;
+    transition: opacity var(--anim-fast) ease;
   }
   .content-stack.visible .text-row.active,
   .content-stack.visible .cal.active {
@@ -382,8 +381,8 @@
     cursor: pointer;
     flex-shrink: 0;
     transition:
-      color 120ms ease,
-      background-color 120ms ease;
+      color var(--anim-fast) ease,
+      background-color var(--anim-fast) ease;
   }
   .mode-btn:hover,
   .cal-nav:hover {
@@ -439,7 +438,7 @@
     cursor: pointer;
     position: relative;
     box-sizing: border-box;
-    transition: background-color 120ms ease;
+    transition: background-color var(--anim-fast) ease;
   }
   .cal-cell:hover:not(.empty):not(.selected) {
     background: color-mix(in srgb, var(--fg) 10%, transparent);

@@ -3,7 +3,19 @@
   import { editBounds, phaseFor, type Phase } from "../lib/meetingPhase";
   import { LOCALE } from "../lib/locale";
   import CalendarClock from "@lucide/svelte/icons/calendar-clock";
-  import DateTimeBubble from "./DateTimeBubble.svelte";
+
+  type Props = {
+    // Bubble lives in App-level layout (so opening it can push the
+    // editor area down with a spacer). MeetingMeta only renders the
+    // trigger button; App owns the open/close state and reflects
+    // it back through these props.
+    scheduleBubbleOpen?: boolean;
+    onToggleScheduleBubble?: () => void;
+  };
+  let {
+    scheduleBubbleOpen = false,
+    onToggleScheduleBubble,
+  }: Props = $props();
 
   const createdAt = $derived(store.state.meeting?.createdAt);
   const scheduledStartAt = $derived(store.state.meeting?.scheduledStartAt);
@@ -72,46 +84,9 @@
         : "",
   );
 
-  let bubbleOpen = $state(false);
-  let triggerEl: HTMLButtonElement | undefined = $state();
-
-  function toggleBubble(): void {
-    bubbleOpen = !bubbleOpen;
+  function handleTrigger(): void {
+    onToggleScheduleBubble?.();
   }
-  function closeBubble(): void {
-    bubbleOpen = false;
-  }
-  function handleCommit(iso: string): void {
-    store.setScheduledStartAt(iso);
-    bubbleOpen = false;
-  }
-  function handleClear(): void {
-    store.clearScheduledStartAt();
-    bubbleOpen = false;
-  }
-
-  // Clicks anywhere outside the bubble (and the trigger that opens it)
-  // dismiss it. Listening on `mousedown` rather than `click` so the
-  // dismissal happens before any inadvertent focus-shifting click
-  // handlers on the underlying surface fire.
-  $effect(() => {
-    if (!bubbleOpen) return;
-    function onDown(e: MouseEvent): void {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (triggerEl?.contains(target)) return;
-      const bubble = document.querySelector(".datetime-bubble");
-      if (bubble?.contains(target)) return;
-      bubbleOpen = false;
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  });
-
-  // Bubble takes the live scheduled value if set, else the createdAt as
-  // a sensible starting point. Never read directly from the trigger
-  // label — that's locale-formatted, not a parseable instant.
-  const bubbleValue = $derived(scheduledStartAt ?? createdAt ?? "");
 </script>
 
 {#if isEmpty && createdAt}
@@ -125,24 +100,15 @@
       </span>
     {/if}
     <button
-      bind:this={triggerEl}
       class="ts-trigger"
       type="button"
+      data-schedule-trigger
       aria-label={scheduledStartAt
         ? "Change scheduled start"
         : "Set scheduled start"}
-      aria-expanded={bubbleOpen}
-      onclick={toggleBubble}
+      aria-expanded={scheduleBubbleOpen}
+      onclick={handleTrigger}
     >{triggerLabel}</button>
-    {#if bubbleOpen && bubbleValue}
-      <DateTimeBubble
-        value={bubbleValue}
-        hasSchedule={!!scheduledStartAt}
-        onCommit={handleCommit}
-        onClose={closeBubble}
-        onClear={handleClear}
-      />
-    {/if}
   </div>
 {:else if startTs}
   <div class="meeting-meta">
@@ -167,8 +133,6 @@
 
 <style>
   .meeting-meta {
-    /* Anchors the bubble's absolutely-positioned dropdown. */
-    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -194,7 +158,7 @@
       color-mix(in srgb, var(--muted) 70%, transparent);
     text-underline-offset: 0.18em;
     text-decoration-thickness: 1px;
-    transition: text-decoration-color 120ms ease;
+    transition: text-decoration-color var(--anim-fast) ease;
   }
   .ts-trigger:hover,
   .ts-trigger:focus-visible {
