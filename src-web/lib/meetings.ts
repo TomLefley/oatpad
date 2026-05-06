@@ -32,7 +32,37 @@ export type MeetingSummary = {
   meetingId: string;
   title: string;
   createdAt: string;
+  // Planned start when set by an external creator (e.g. a calendar
+  // sync). Absent for in-app meetings. Sidebar uses this in place of
+  // createdAt for display + sorting on rows where started is false.
+  scheduledStartAt?: string;
+  // True once the events log contains any note edit (note_updated /
+  // note_deleted). Bookkeeping events (meeting_started, file_loaded)
+  // don't count — they're produced before the user has typed.
+  started: boolean;
 };
+
+// Effective sort key: scheduledStartAt when set, else createdAt. Used
+// so a meeting created in advance of its slot still appears next to
+// other meetings from that slot, not next to its creation time.
+export function summarySortKey(s: MeetingSummary): string {
+  return s.scheduledStartAt ?? s.createdAt;
+}
+
+export function summaryFromFile(file: OatsFile): MeetingSummary {
+  const started = file.events.some(
+    (e) => e.type === "note_updated" || e.type === "note_deleted",
+  );
+  return {
+    meetingId: file.meetingId,
+    title: file.title,
+    createdAt: file.createdAt,
+    ...(file.scheduledStartAt !== undefined
+      ? { scheduledStartAt: file.scheduledStartAt }
+      : {}),
+    started,
+  };
+}
 
 async function ensureDir(): Promise<void> {
   if (!(await exists(DIR, { baseDir: BASE_DIR }))) {
@@ -47,12 +77,8 @@ function meetingPath(id: string): string {
 export async function listMeetings(): Promise<MeetingSummary[]> {
   if (isFreshMode) {
     return Array.from(memCache.values())
-      .map((f) => ({
-        meetingId: f.meetingId,
-        title: f.title,
-        createdAt: f.createdAt,
-      }))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .map(summaryFromFile)
+      .sort((a, b) => summarySortKey(b).localeCompare(summarySortKey(a)));
   }
   await ensureDir();
   const entries = await readDir(DIR, { baseDir: BASE_DIR });
@@ -62,19 +88,15 @@ export async function listMeetings(): Promise<MeetingSummary[]> {
     try {
       const text = await readTextFile(`${DIR}/${entry.name}`, { baseDir: BASE_DIR });
       const file = parseOatsFile(text);
-      summaries.push({
-        meetingId: file.meetingId,
-        title: file.title,
-        createdAt: file.createdAt,
-      });
+      summaries.push(summaryFromFile(file));
     } catch {
       // Skip unreadable / malformed files rather than crashing the app.
       continue;
     }
   }
-  // Newest first: ISO strings sort lexicographically the same as temporally,
-  // so localeCompare(b, a) yields descending order by creation time.
-  summaries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // Newest first by effective sort key (scheduledStartAt ?? createdAt).
+  // ISO strings compare temporally under localeCompare.
+  summaries.sort((a, b) => summarySortKey(b).localeCompare(summarySortKey(a)));
   return summaries;
 }
 

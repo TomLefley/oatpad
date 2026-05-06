@@ -2,8 +2,10 @@
   import * as store from "../lib/store.svelte";
   import { editBounds, phaseFor, type Phase } from "../lib/meetingPhase";
   import { LOCALE } from "../lib/locale";
+  import Clock from "@lucide/svelte/icons/clock";
 
   const createdAt = $derived(store.state.meeting?.createdAt);
+  const scheduledStartAt = $derived(store.state.meeting?.scheduledStartAt);
 
   const bounds = $derived(
     editBounds(
@@ -11,6 +13,14 @@
       store.state.firstInputAt,
       store.state.lastInputAt,
     ),
+  );
+
+  // "Scheduled but not started" = a planned start time exists and the
+  // user hasn't typed anything yet (no edit events, no live input).
+  // Once anything makes bounds.first non-null we drop back into the
+  // regular start→phase indicator UI.
+  const scheduledOnly = $derived(
+    !!scheduledStartAt && bounds.first === null,
   );
 
   let phase = $state<Phase>("none");
@@ -55,7 +65,14 @@
   }
 </script>
 
-{#if startTs}
+{#if scheduledOnly && scheduledStartAt}
+  <div class="meeting-meta" aria-label="Scheduled to start">
+    <span class="scheduled-icon" aria-hidden="true">
+      <Clock size={13} strokeWidth={2} />
+    </span>
+    <span class="ts">{fmt(scheduledStartAt)}</span>
+  </div>
+{:else if startTs}
   <div class="meeting-meta">
     <span class="ts">{fmt(startTs)}</span>
     {#if phase !== "none"}
@@ -88,6 +105,11 @@
   }
   .ts {
     font-variant-numeric: tabular-nums;
+  }
+  .scheduled-icon {
+    display: inline-flex;
+    align-items: center;
+    color: color-mix(in srgb, var(--muted) 80%, transparent);
   }
   .arrow {
     color: color-mix(in srgb, var(--muted) 70%, transparent);

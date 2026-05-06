@@ -170,6 +170,9 @@ export function parseOatsFile(text: string): OatsFile {
   requireString(parsed, "notetaker");
   requireString(parsed, "title");
   requireString(parsed, "createdAt");
+  if (parsed.scheduledStartAt !== undefined) {
+    requireString(parsed, "scheduledStartAt");
+  }
 
   if (!Array.isArray(parsed.events)) {
     throw new Error("`events` must be an array.");
@@ -203,12 +206,18 @@ export function parseOatsFile(text: string): OatsFile {
     return x;
   });
 
+  const scheduledStartAt =
+    typeof parsed.scheduledStartAt === "string"
+      ? parsed.scheduledStartAt
+      : undefined;
+
   return {
     version: 1,
     meetingId: parsed.meetingId as string,
     notetaker: parsed.notetaker as string,
     title: parsed.title as string,
     createdAt: parsed.createdAt as string,
+    ...(scheduledStartAt !== undefined ? { scheduledStartAt } : {}),
     events,
     snapshot,
     paragraphIds,

@@ -84,6 +84,16 @@ describe("isOatsFile", () => {
     expect(isOatsFile({ ...valid, snapshot: {} })).toBe(false);
     expect(isOatsFile({ ...valid, snapshot: { ops: "x" } })).toBe(false);
   });
+
+  it("accepts an optional scheduledStartAt string", () => {
+    expect(
+      isOatsFile({ ...valid, scheduledStartAt: "2026-04-27T09:30:00.000Z" }),
+    ).toBe(true);
+  });
+
+  it("rejects a non-string scheduledStartAt", () => {
+    expect(isOatsFile({ ...valid, scheduledStartAt: 123 })).toBe(false);
+  });
 });
 
 describe("summaryOf", () => {
@@ -101,6 +111,16 @@ describe("summaryOf", () => {
     expect(
       summaryOf(makeFile("a", "   ", "2026-04-27T10:00:00Z")).displayName,
     ).toBe("meeting");
+  });
+
+  it("includes scheduledStartAt only when present on the file", () => {
+    const without = summaryOf(makeFile("a", "M", "2026-04-27T10:00:00Z"));
+    expect("scheduledStartAt" in without).toBe(false);
+
+    const file = makeFile("a", "M", "2026-04-27T10:00:00Z");
+    file.scheduledStartAt = "2026-04-27T09:30:00.000Z";
+    const withSched = summaryOf(file);
+    expect(withSched.scheduledStartAt).toBe("2026-04-27T09:30:00.000Z");
   });
 });
 

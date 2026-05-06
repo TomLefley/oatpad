@@ -50,6 +50,9 @@ export type MeetingSummary = {
   title: string;
   displayName: string;
   createdAt: string;
+  // Planned start time supplied by an external creator (e.g. calendar
+  // sync). Absent when the user created the meeting in-app.
+  scheduledStartAt?: string;
   notetaker: string;
 };
 
@@ -67,6 +70,12 @@ export function isOatsFile(v: unknown): v is OatsFile {
   ) {
     return false;
   }
+  if (
+    o.scheduledStartAt !== undefined &&
+    typeof o.scheduledStartAt !== "string"
+  ) {
+    return false;
+  }
   if (!o.snapshot || typeof o.snapshot !== "object") return false;
   const snap = o.snapshot as Record<string, unknown>;
   return Array.isArray(snap.ops);
@@ -79,6 +88,9 @@ export function summaryOf(file: OatsFile): MeetingSummary {
     title: file.title,
     displayName: trimmed || "meeting",
     createdAt: file.createdAt,
+    ...(file.scheduledStartAt !== undefined
+      ? { scheduledStartAt: file.scheduledStartAt }
+      : {}),
     notetaker: file.notetaker,
   };
 }

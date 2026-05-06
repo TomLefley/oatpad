@@ -15,13 +15,26 @@ const meetingFiles = new Map<string, OatsFile>();
 vi.mock("./meetings", () => ({
   listMeetings: vi.fn(async () =>
     Array.from(meetingFiles.values())
-      .map((f) => ({
-        meetingId: f.meetingId,
-        title: f.title,
-        createdAt: f.createdAt,
-      }))
-      // Match real meetings.ts ordering: newest first.
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      .map((f) => {
+        const started = f.events.some(
+          (e) => e.type === "note_updated" || e.type === "note_deleted",
+        );
+        return {
+          meetingId: f.meetingId,
+          title: f.title,
+          createdAt: f.createdAt,
+          ...(f.scheduledStartAt !== undefined
+            ? { scheduledStartAt: f.scheduledStartAt }
+            : {}),
+          started,
+        };
+      })
+      // Match real meetings.ts ordering: by scheduledStartAt ?? createdAt, newest first.
+      .sort((a, b) => {
+        const ka = a.scheduledStartAt ?? a.createdAt;
+        const kb = b.scheduledStartAt ?? b.createdAt;
+        return kb.localeCompare(ka);
+      }),
   ),
   loadMeeting: vi.fn(async (id: string) => meetingFiles.get(id) ?? null),
   saveMeeting: vi.fn(async (file: OatsFile) => {
@@ -320,6 +333,60 @@ describe("replaceMeetingFromFile (native)", () => {
 
     expect(store.state.firstInputAt).toBeNull();
     expect(store.state.lastInputAt).toBeNull();
+  });
+});
+
+describe("appendEvents (native) — sidebar started flag", () => {
+  beforeEach(() => {
+    meetingFiles.clear();
+  });
+
+  it("flips the current row's started flag to true once an edit event is appended", async () => {
+    // Build a scheduled-but-not-started meeting: only the bookkeeping
+    // meeting_started event in the log.
+    const a: OatsFile = {
+      version: 1,
+      meetingId: "aaa",
+      notetaker: "tester",
+      title: "Planned",
+      createdAt: "2026-04-29T08:00:00.000Z",
+      scheduledStartAt: "2026-04-29T15:00:00.000Z",
+      events: [
+        {
+          type: "meeting_started",
+          id: "aaa-s",
+          ts: "2026-04-29T08:00:00.000Z",
+          notetaker: "tester",
+        },
+      ],
+      snapshot: { ops: [{ insert: "\n" }] },
+      paragraphIds: [],
+    };
+    meetingFiles.set(a.meetingId, a);
+
+    const store = await loadStore();
+    await store.initMeeting();
+    expect(store.state.meeting?.meetingId).toBe("aaa");
+    // Sidebar starts with started=false because the events log has no edits.
+    expect(store.state.meetings[0].started).toBe(false);
+    expect(store.state.meetings[0].scheduledStartAt).toBe(
+      "2026-04-29T15:00:00.000Z",
+    );
+
+    // The user types — Editor commits a note_updated.
+    store.appendEvents([
+      {
+        type: "note_updated",
+        id: "u1",
+        ts: "2026-04-29T15:01:00.000Z",
+        noteId: "n1",
+        text: "hi",
+      },
+    ]);
+
+    // Sidebar must reflect the transition immediately so the clock icon
+    // disappears the moment the meeting starts.
+    expect(store.state.meetings[0].started).toBe(true);
   });
 });
 

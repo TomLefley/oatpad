@@ -27,8 +27,13 @@ vi.mock("../lib/store.svelte", () => ({
   setTitle: vi.fn(),
 }));
 
-function makeSummary(id: string, title: string, createdAt: string): MeetingSummary {
-  return { meetingId: id, title, createdAt };
+function makeSummary(
+  id: string,
+  title: string,
+  createdAt: string,
+  extras: Partial<Pick<MeetingSummary, "scheduledStartAt" | "started">> = {},
+): MeetingSummary {
+  return { meetingId: id, title, createdAt, started: true, ...extras };
 }
 
 beforeEach(() => {
@@ -92,6 +97,60 @@ describe("Sidebar — list rendering", () => {
   it("does not render an aside when collapsed", async () => {
     const { container } = await mountSidebar({ collapsed: true });
     expect(container.querySelector("aside.sidebar")).toBeNull();
+  });
+});
+
+describe("Sidebar — scheduled-but-not-started rows", () => {
+  it("renders a clock icon and the scheduled time for unstarted rows", async () => {
+    storeState.meetings = [
+      makeSummary("a", "Planned", "2026-04-29T08:00:00.000Z", {
+        scheduledStartAt: "2026-04-29T15:00:00.000Z",
+        started: false,
+      }),
+      makeSummary("b", "Already running", "2026-04-29T09:00:00.000Z", {
+        // Even with a scheduledStartAt set, started=true means the row
+        // is back in the regular post-start view (no clock icon).
+        scheduledStartAt: "2026-04-29T10:00:00.000Z",
+        started: true,
+      }),
+    ];
+    const { container } = await mountSidebar();
+    const rows = container.querySelectorAll(".row");
+    // Only the unstarted row gets the clock marker.
+    expect(rows[0]?.querySelector(".scheduled-icon")).not.toBeNull();
+    expect(rows[1]?.querySelector(".scheduled-icon")).toBeNull();
+  });
+
+  it("uses scheduledStartAt as the displayed time on unstarted rows", async () => {
+    // Pin "now" to the same day as the fixture so fmtTimestamp takes
+    // the same-day branch and renders HH:MM (rather than a "29 Apr"
+    // date), letting us assert on the time that's actually used.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-29T12:00:00.000Z"));
+    try {
+      storeState.meetings = [
+        makeSummary("a", "Planned", "2026-04-29T08:00:00.000Z", {
+          scheduledStartAt: "2026-04-29T15:00:00.000Z",
+          started: false,
+        }),
+      ];
+      const { container } = await mountSidebar();
+      const time = container.querySelector(".row-time");
+      const d = new Date("2026-04-29T15:00:00.000Z");
+      const hh = String(d.getHours()).padStart(2, "0");
+      expect(time?.textContent).toMatch(new RegExp(`${hh}:`));
+
+      // The createdAt's local hours must not be what we rendered —
+      // otherwise we'd be sorting by schedule but displaying the
+      // creation time, which is the bug this guards against.
+      const c = new Date("2026-04-29T08:00:00.000Z");
+      const chh = String(c.getHours()).padStart(2, "0");
+      if (chh !== hh) {
+        expect(time?.textContent).not.toMatch(new RegExp(`${chh}:`));
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

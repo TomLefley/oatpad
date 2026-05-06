@@ -98,8 +98,85 @@ describe("meetings (fresh mode)", () => {
       meetingId: "c",
       title: "New",
       createdAt: "2026-04-28T10:00:00.000Z",
+      started: false,
     });
     expect(fsCalls).not.toHaveBeenCalled();
+  });
+
+  it("listMeetings sorts by scheduledStartAt when present, falling back to createdAt", async () => {
+    const m = await loadMeetingsModule();
+    // Meeting A: created early, scheduled for tomorrow
+    const a = makeFile("a", "Scheduled late", "2026-04-26T10:00:00.000Z");
+    a.scheduledStartAt = "2026-04-29T15:00:00.000Z";
+    await m.saveMeeting(a);
+    // Meeting B: created later, no schedule
+    await m.saveMeeting(makeFile("b", "Just created", "2026-04-28T10:00:00.000Z"));
+    // Meeting C: created later still, scheduled for earlier
+    const c = makeFile("c", "Scheduled early", "2026-04-28T11:00:00.000Z");
+    c.scheduledStartAt = "2026-04-27T09:00:00.000Z";
+    await m.saveMeeting(c);
+
+    const list = await m.listMeetings();
+    // Effective ordering keys (desc): A=29th, B=28th-10:00, C=27th
+    expect(list.map((s) => s.meetingId)).toEqual(["a", "b", "c"]);
+  });
+
+  it("listMeetings carries scheduledStartAt through to the summary when set", async () => {
+    const m = await loadMeetingsModule();
+    const f = makeFile("a", "T", "2026-04-26T10:00:00.000Z");
+    f.scheduledStartAt = "2026-04-27T09:00:00.000Z";
+    await m.saveMeeting(f);
+
+    const [summary] = await m.listMeetings();
+    expect(summary.scheduledStartAt).toBe("2026-04-27T09:00:00.000Z");
+  });
+
+  it("listMeetings reports started=true when the events log has a note_updated", async () => {
+    const m = await loadMeetingsModule();
+    const f = makeFile("a", "T", "2026-04-26T10:00:00.000Z");
+    f.events.push({
+      type: "note_updated",
+      id: "u1",
+      ts: "2026-04-26T10:00:05.000Z",
+      noteId: "n1",
+      text: "hi",
+    });
+    await m.saveMeeting(f);
+
+    const [summary] = await m.listMeetings();
+    expect(summary.started).toBe(true);
+  });
+
+  it("listMeetings reports started=true on note_deleted as well", async () => {
+    const m = await loadMeetingsModule();
+    const f = makeFile("a", "T", "2026-04-26T10:00:00.000Z");
+    f.events.push({
+      type: "note_deleted",
+      id: "d1",
+      ts: "2026-04-26T10:00:05.000Z",
+      noteId: "n1",
+    });
+    await m.saveMeeting(f);
+
+    const [summary] = await m.listMeetings();
+    expect(summary.started).toBe(true);
+  });
+
+  it("listMeetings reports started=false when only bookkeeping events exist", async () => {
+    // meeting_started + file_loaded both count as bookkeeping — neither
+    // signals the user has actually written anything yet.
+    const m = await loadMeetingsModule();
+    const f = makeFile("a", "T", "2026-04-26T10:00:00.000Z");
+    f.events.push({
+      type: "file_loaded",
+      id: "fl",
+      ts: "2026-04-26T10:00:01.000Z",
+      sourceTitle: "T",
+    });
+    await m.saveMeeting(f);
+
+    const [summary] = await m.listMeetings();
+    expect(summary.started).toBe(false);
   });
 
   it("deleteMeeting removes a cached entry", async () => {

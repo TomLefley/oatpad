@@ -95,7 +95,8 @@ Notes are saved as `.oats` files (JSON):
   meetingId: string,         // UUID, also the on-disk filename in native mode
   notetaker: string,         // the human's name
   title: string,             // user-supplied meeting name; "" falls back to "meeting" at render
-  createdAt: string,         // ISO 8601
+  createdAt: string,         // ISO 8601 — when Oatpad created the meeting
+  scheduledStartAt?: string, // ISO 8601 — planned start when set by an external creator (e.g. calendar sync); absent for in-app meetings
   events: OatsEvent[],       // source of truth for history
   snapshot: QuillDelta,      // editor state for reload
   paragraphIds: string[],    // maps snapshot blocks back to noteIds

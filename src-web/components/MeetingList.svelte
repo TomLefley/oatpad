@@ -7,6 +7,7 @@
   import { backOut } from "svelte/easing";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Check from "@lucide/svelte/icons/check";
+  import Clock from "@lucide/svelte/icons/clock";
 
   type Props = {
     meetings: MeetingSummary[];
@@ -71,6 +72,11 @@
     {@const current = store.state.meeting?.meetingId === summary.meetingId}
     {@const label = labelFor(summary.title)}
     {@const confirming = confirmingId === summary.meetingId}
+    {@const scheduledOnly =
+      !!summary.scheduledStartAt && !summary.started}
+    {@const rowTime = scheduledOnly && summary.scheduledStartAt
+      ? summary.scheduledStartAt
+      : summary.createdAt}
     <li
       class="row"
       class:current
@@ -96,7 +102,16 @@
         class="row-right"
         onclick={() => handleSwitch(summary.meetingId)}
       >
-        <span class="row-time">{fmtTimestamp(summary.createdAt)}</span>
+        {#if scheduledOnly}
+          <span
+            class="scheduled-icon"
+            aria-label="Scheduled to start"
+            title="Scheduled to start"
+          >
+            <Clock size={12} strokeWidth={2} />
+          </span>
+        {/if}
+        <span class="row-time">{fmtTimestamp(rowTime)}</span>
         <button
           class="row-del"
           onclick={(e) => {
@@ -206,6 +221,19 @@
     font-variant-numeric: tabular-nums;
     user-select: none;
     transition: transform 160ms ease;
+  }
+  .scheduled-icon {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 4px;
+    color: color-mix(in srgb, var(--muted) 80%, transparent);
+    transition: transform 160ms ease;
+  }
+  /* Slide alongside the time column when the trash icon swings in. */
+  .row-right:hover .scheduled-icon,
+  .row-right:focus-within .scheduled-icon,
+  .row.confirming .scheduled-icon {
+    transform: translateX(-30px);
   }
   .row-right:hover .row-time,
   .row-right:focus-within .row-time,

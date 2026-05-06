@@ -201,4 +201,22 @@ describe("parseOatsFile", () => {
       parseOatsFile(withChange({ paragraphIds: ["ok", 42] })),
     ).toThrow(/paragraphIds\[1\]/);
   });
+
+  it("preserves scheduledStartAt when present", () => {
+    const file = parseOatsFile(
+      withChange({ scheduledStartAt: "2026-04-23T09:30:00.000Z" }),
+    );
+    expect(file.scheduledStartAt).toBe("2026-04-23T09:30:00.000Z");
+  });
+
+  it("omits scheduledStartAt when absent", () => {
+    const file = parseOatsFile(JSON.stringify(valid));
+    expect("scheduledStartAt" in file).toBe(false);
+  });
+
+  it("rejects non-string scheduledStartAt", () => {
+    expect(() =>
+      parseOatsFile(withChange({ scheduledStartAt: 123 })),
+    ).toThrow(/scheduledStartAt/);
+  });
 });

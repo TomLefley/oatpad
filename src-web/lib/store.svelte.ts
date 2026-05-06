@@ -13,6 +13,7 @@ export type Meeting = {
   notetaker: string;
   title: string;
   createdAt: string;
+  scheduledStartAt?: string;
   events: OatsEvent[];
   snapshot: QuillDelta;
   paragraphIds: string[];
@@ -152,6 +153,9 @@ function fileToMeeting(file: OatsFile): Meeting {
     notetaker: file.notetaker,
     title: file.title,
     createdAt: file.createdAt,
+    ...(file.scheduledStartAt !== undefined
+      ? { scheduledStartAt: file.scheduledStartAt }
+      : {}),
     events: file.events,
     snapshot: file.snapshot,
     paragraphIds: file.paragraphIds,
@@ -159,7 +163,18 @@ function fileToMeeting(file: OatsFile): Meeting {
 }
 
 function summaryOf(m: Meeting): MeetingSummary {
-  return { meetingId: m.meetingId, title: m.title, createdAt: m.createdAt };
+  const started = m.events.some(
+    (e) => e.type === "note_updated" || e.type === "note_deleted",
+  );
+  return {
+    meetingId: m.meetingId,
+    title: m.title,
+    createdAt: m.createdAt,
+    ...(m.scheduledStartAt !== undefined
+      ? { scheduledStartAt: m.scheduledStartAt }
+      : {}),
+    started,
+  };
 }
 
 function refreshCurrentSummary(): void {
@@ -195,6 +210,12 @@ export function appendEvents(events: OatsEvent[]): void {
   if (!state.meeting) return;
   if (events.length === 0) return;
   state.meeting.events.push(...events);
+  // The sidebar's per-row started flag is derived from the events log,
+  // so any new edit can flip a scheduled-but-not-started row out of
+  // its "scheduled" presentation (clock icon, scheduled time). Refresh
+  // the cached summary on the native sidebar list to keep both views
+  // in lockstep — refreshCurrentSummary is a no-op on web.
+  if (isNative) refreshCurrentSummary();
   persist();
 }
 
@@ -353,6 +374,7 @@ function toOatsFileFrom(m: Meeting): OatsFile {
     notetaker,
     title,
     createdAt,
+    scheduledStartAt,
     events,
     snapshot,
     paragraphIds,
@@ -363,6 +385,7 @@ function toOatsFileFrom(m: Meeting): OatsFile {
     notetaker,
     title,
     createdAt,
+    ...(scheduledStartAt !== undefined ? { scheduledStartAt } : {}),
     events,
     snapshot,
     paragraphIds,

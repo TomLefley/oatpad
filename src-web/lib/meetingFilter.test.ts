@@ -3,10 +3,10 @@ import { labelFor, filterMeetings } from "./meetingFilter";
 import type { MeetingSummary } from "./meetings";
 
 const MEETINGS: MeetingSummary[] = [
-  { meetingId: "a", title: "Standup", createdAt: "2026-04-25T09:00:00.000Z" },
-  { meetingId: "b", title: "  Roadmap  ", createdAt: "2026-04-26T15:30:00.000Z" },
-  { meetingId: "c", title: "", createdAt: "2026-04-27T10:00:00.000Z" },
-  { meetingId: "d", title: "Roadmap retro", createdAt: "2026-04-27T16:00:00.000Z" },
+  { meetingId: "a", title: "Standup", createdAt: "2026-04-25T09:00:00.000Z", started: true },
+  { meetingId: "b", title: "  Roadmap  ", createdAt: "2026-04-26T15:30:00.000Z", started: true },
+  { meetingId: "c", title: "", createdAt: "2026-04-27T10:00:00.000Z", started: true },
+  { meetingId: "d", title: "Roadmap retro", createdAt: "2026-04-27T16:00:00.000Z", started: true },
 ];
 
 describe("labelFor", () => {

@@ -59,7 +59,12 @@ export type OatsFile = {
   meetingId: string;
   notetaker: string;
   title: string;
+  // Wall-clock time at which Oatpad created the meeting. Always present.
   createdAt: string;
+  // Optional planned start time, set by external tools that create
+  // meetings in advance (e.g. a calendar sync). Absent when the user
+  // creates a meeting in-app.
+  scheduledStartAt?: string;
   events: OatsEvent[];
   snapshot: QuillDelta;
   paragraphIds: string[];

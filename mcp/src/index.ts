@@ -47,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "list_meetings",
       description:
-        "List every Oatpad meeting, newest first. Each entry has its meetingId, the user-supplied title (empty if unnamed), a displayName that falls back to \"meeting\" when the title is blank, the createdAt ISO timestamp, and the notetaker name.",
+        "List every Oatpad meeting, newest first. Each entry has its meetingId, the user-supplied title (empty if unnamed), a displayName that falls back to \"meeting\" when the title is blank, the createdAt ISO timestamp, an optional scheduledStartAt ISO timestamp (planned start when set by an external creator like a calendar sync; absent for in-app meetings), and the notetaker name.",
       inputSchema: {
         type: "object",
         properties: {},
