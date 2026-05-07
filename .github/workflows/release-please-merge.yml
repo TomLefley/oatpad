@@ -1,0 +1,81 @@
+name: Auto-merge release PR
+
+on:
+  schedule:
+    # Monday 09:00 UTC weekly — picks up batched patch bumps.
+    - cron: '0 9 * * 1'
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  maybe-merge:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.user.login == 'dependabot[bot]')
+    steps:
+      - if: github.event_name == 'pull_request'
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether this trigger should merge the release PR
+        id: gate
+        run: |
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            schedule|workflow_dispatch)
+              echo "proceed=true" >> "$GITHUB_OUTPUT"
+              echo "patch_only=true" >> "$GITHUB_OUTPUT"
+              ;;
+            pull_request)
+              sev="${{ steps.meta.outputs.cvss-severity }}"
+              if [ "$sev" = "high" ] || [ "$sev" = "critical" ]; then
+                echo "proceed=true" >> "$GITHUB_OUTPUT"
+                # Severity bypass implies a security fix — always a patch.
+                echo "patch_only=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "Severity '$sev' below threshold — leaving release PR for the cron"
+                echo "proceed=false" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+          esac
+
+      - uses: actions/create-github-app-token@v2
+        if: steps.gate.outputs.proceed == 'true'
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
+      - name: Auto-merge open release PR
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PATCH_ONLY: ${{ steps.gate.outputs.patch_only }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list --state open --label "autorelease: pending" --json number,title --jq '.[0]')
+          if [ -z "$pr" ] || [ "$pr" = "null" ]; then
+            echo "No release PR open"
+            exit 0
+          fi
+          number=$(jq -nr --argjson p "$pr" '$p.number')
+          title=$(jq -nr --argjson p "$pr" '$p.title')
+          version=$(echo "$title" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
+          patch="${version##*.}"
+          # Patch bumps roll out via this automation; minor/major
+          # bumps stay open for human review even if the cron fires.
+          if [ "$PATCH_ONLY" = "true" ] && [ "$patch" = "0" ]; then
+            echo "Release PR #$number is a non-patch bump ($version) — leaving for manual review"
+            exit 0
+          fi
+          echo "Queuing release PR #$number ($version) for auto-merge"
+          gh pr merge "$number" --squash --auto
