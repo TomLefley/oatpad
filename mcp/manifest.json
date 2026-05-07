@@ -2,9 +2,9 @@
   "manifest_version": "0.2",
   "name": "oatpad",
   "display_name": "Oatpad",
-  "version": "0.1.0",
-  "description": "Read your Oatpad meetings: list them, fetch one by id, or pull every meeting in a date range.",
-  "long_description": "Reads `.oats` meeting files written by the Oatpad macOS app from its application data directory and exposes them as MCP tools. Read-only — the bundle never writes back to disk.",
+  "version": "0.2.0",
+  "description": "Search Oatpad meetings by title, fetch one by id, pull every meeting in a date range, or schedule a new meeting for a future slot.",
+  "long_description": "Reads `.oats` meeting files written by the Oatpad macOS app from its application data directory and exposes them as MCP tools. The read tools support title search (matching Oatpad's sidebar — note text is not searched) and date filters. The bundle can also write a fresh `.oats` file to schedule a new meeting at a specific time — Oatpad picks scheduled meetings up the next time it reads the meetings directory. Existing meetings are never modified.",
   "author": {
     "name": "Tom Shelton-Lefley"
   },
@@ -20,7 +20,7 @@
   "tools": [
     {
       "name": "list_meetings",
-      "description": "List every Oatpad meeting, newest first."
+      "description": "Search and list Oatpad meeting summaries with optional title query, date range, and limit. Newest first."
     },
     {
       "name": "get_meeting",
@@ -28,7 +28,11 @@
     },
     {
       "name": "get_meetings_in_range",
-      "description": "Retrieve every Oatpad meeting whose createdAt falls within an ISO 8601 datetime range."
+      "description": "Retrieve full meeting JSON for every Oatpad meeting whose effective time falls within an ISO 8601 datetime range."
+    },
+    {
+      "name": "schedule_meeting",
+      "description": "Create a new Oatpad meeting planned for a specific time, with a title and optional notetaker."
     }
   ]
 }
