@@ -22,7 +22,7 @@ jobs:
     steps:
       - if: github.event_name == 'pull_request'
         id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -58,7 +58,7 @@ jobs:
               ;;
           esac
 
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         if: steps.gate.outputs.proceed == 'true'
         id: app-token
         with:
