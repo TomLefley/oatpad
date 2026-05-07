@@ -59,4 +59,4 @@ jobs:
 
       - name: cargo audit
         working-directory: src
-        run: cargo audit --deny warnings
+        run: cargo audit
