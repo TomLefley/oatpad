@@ -33,3 +33,30 @@ jobs:
       - name: Run MCP tests
         working-directory: mcp
         run: npm test
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: npm audit (app)
+        run: npm audit --audit-level=high
+
+      - name: npm audit (mcp)
+        working-directory: mcp
+        run: npm audit --audit-level=high
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: cargo audit
+        working-directory: src
+        run: cargo audit --deny warnings
