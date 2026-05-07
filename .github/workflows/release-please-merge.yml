@@ -32,15 +32,25 @@ jobs:
           set -euo pipefail
           case "${{ github.event_name }}" in
             schedule|workflow_dispatch)
+              # Cron / manual: only ship batched patch bumps. Minor and
+              # major releases stay open for human review.
               echo "proceed=true" >> "$GITHUB_OUTPUT"
               echo "patch_only=true" >> "$GITHUB_OUTPUT"
+              echo "wait_for_update=false" >> "$GITHUB_OUTPUT"
               ;;
             pull_request)
               sev="${{ steps.meta.outputs.cvss-severity }}"
               if [ "$sev" = "high" ] || [ "$sev" = "critical" ]; then
+                # Severity bypass: ship whatever's queued, including a
+                # minor or major if a feat: is sitting on main. Trades
+                # version-numbering politeness for shipping the fix
+                # ASAP — assumes main stays releasable.
                 echo "proceed=true" >> "$GITHUB_OUTPUT"
-                # Severity bypass implies a security fix — always a patch.
-                echo "patch_only=true" >> "$GITHUB_OUTPUT"
+                echo "patch_only=false" >> "$GITHUB_OUTPUT"
+                # Wait for release-please to update the release PR with
+                # the merge that just landed before merging it.
+                echo "wait_for_update=true" >> "$GITHUB_OUTPUT"
+                echo "merged_at=${{ github.event.pull_request.merged_at }}" >> "$GITHUB_OUTPUT"
               else
                 echo "Severity '$sev' below threshold — leaving release PR for the cron"
                 echo "proceed=false" >> "$GITHUB_OUTPUT"
@@ -60,10 +70,45 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PATCH_ONLY: ${{ steps.gate.outputs.patch_only }}
+          WAIT_FOR_UPDATE: ${{ steps.gate.outputs.wait_for_update }}
+          MERGED_AT: ${{ steps.gate.outputs.merged_at }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          pr=$(gh pr list --state open --label "autorelease: pending" --json number,title --jq '.[0]')
-          if [ -z "$pr" ] || [ "$pr" = "null" ]; then
+
+          find_pr() {
+            gh pr list --state open --label "autorelease: pending" \
+              --json number,title,headRefOid \
+              --jq '.[0] // empty'
+          }
+
+          # Severity bypass races release-please.yml — give it up to
+          # 5 min to (re)open the release PR with the new commit
+          # before falling back. We compare the release PR head's
+          # committer date against the Dependabot merge time so we
+          # don't merge a stale PR that predates the fix.
+          if [ "$WAIT_FOR_UPDATE" = "true" ]; then
+            deadline=$((SECONDS + 300))
+            while [ $SECONDS -lt $deadline ]; do
+              pr=$(find_pr)
+              if [ -n "$pr" ]; then
+                head_sha=$(jq -nr --argjson p "$pr" '$p.headRefOid')
+                head_date=$(gh api "repos/${REPO}/commits/${head_sha}" --jq '.commit.committer.date')
+                # ISO 8601 strings sort lexicographically.
+                if [ "$head_date" \> "$MERGED_AT" ]; then
+                  echo "Release PR head ($head_sha) is newer than the Dependabot merge — proceeding"
+                  break
+                fi
+                echo "Release PR head ($head_sha @ $head_date) predates the Dependabot merge ($MERGED_AT) — waiting"
+              else
+                echo "No release PR open yet — waiting for release-please"
+              fi
+              sleep 20
+            done
+          fi
+
+          pr=$(find_pr)
+          if [ -z "$pr" ]; then
             echo "No release PR open"
             exit 0
           fi
@@ -71,8 +116,6 @@ jobs:
           title=$(jq -nr --argjson p "$pr" '$p.title')
           version=$(echo "$title" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
           patch="${version##*.}"
-          # Patch bumps roll out via this automation; minor/major
-          # bumps stay open for human review even if the cron fires.
           if [ "$PATCH_ONLY" = "true" ] && [ "$patch" = "0" ]; then
             echo "Release PR #$number is a non-patch bump ($version) — leaving for manual review"
             exit 0
