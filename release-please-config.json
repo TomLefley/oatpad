@@ -5,7 +5,7 @@
       "release-type": "simple",
       "package-name": "oatpad",
       "include-v-in-tag": true,
-      "skip-github-release": true,
+      "draft": true,
       "extra-files": [
         { "type": "json", "path": "package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "src/tauri.conf.json", "jsonpath": "$.version" },
