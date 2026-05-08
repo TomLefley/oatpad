@@ -5,7 +5,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Bug from "@lucide/svelte/icons/bug";
-  import History from "@lucide/svelte/icons/history";
+  import Milestone from "@lucide/svelte/icons/milestone";
 
   // The machine and the auto-check live in updaterInstance.svelte — that
   // way the header's "update ready" dot can read the machine's state even
@@ -31,17 +31,13 @@
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  // When an update is ready we link to its tag (so users can preview
-  // what they'd get by clicking restart); otherwise to the running
-  // version's tag. If neither exists yet (dev build), fall back to the
-  // releases index.
-  const notesUrl = $derived.by(() => {
-    const v =
-      updater.state === "ready" && updater.pendingVersion
-        ? updater.pendingVersion
-        : versionState.value;
-    return v ? `${RELEASES_URL}/tag/v${v}` : RELEASES_URL;
-  });
+  // The notes button only shows alongside the "vX.Y.Z available!"
+  // notification, so it always links to the pending version's tag.
+  const notesUrl = $derived(
+    updater.pendingVersion
+      ? `${RELEASES_URL}/tag/v${updater.pendingVersion}`
+      : RELEASES_URL,
+  );
 
   const updateLabel = $derived(
     updater.state === "ready" ? "Restart to update" : "Check for updates",
@@ -61,6 +57,16 @@
 
 {#if versionState.value}
   <div class="version-row">
+    {#if updater.state === "ready" && updater.pendingVersion}
+      <button
+        class="notes-btn"
+        onclick={() => openExternal(notesUrl)}
+        aria-label="View release notes on GitHub"
+        title="View release notes on GitHub"
+      >
+        <Milestone size={16} strokeWidth={2} />
+      </button>
+    {/if}
     <span
       class="version"
       class:available={updater.state === "ready" && updater.pendingVersion}
@@ -73,14 +79,6 @@
       {/if}
     </span>
     <div class="footer-actions">
-      <button
-        class="notes-btn"
-        onclick={() => openExternal(notesUrl)}
-        aria-label="View release notes on GitHub"
-        title="View release notes on GitHub"
-      >
-        <History size={16} strokeWidth={2} />
-      </button>
       {#if isNative}
         <button
           class="update-btn"
@@ -117,8 +115,7 @@
   .version-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
     margin-top: 6px;
     padding-top: 10px;
     border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
@@ -128,6 +125,11 @@
     color: color-mix(in srgb, var(--fg) 45%, transparent);
     font-variant-numeric: tabular-nums;
     user-select: text;
+    /* Pushes everything after it (the action buttons) to the right
+       edge — equivalent to the old space-between, but works when
+       there's a notes-btn sitting between the version and the row's
+       left edge. */
+    margin-right: auto;
   }
   .version.available {
     color: var(--accent);
