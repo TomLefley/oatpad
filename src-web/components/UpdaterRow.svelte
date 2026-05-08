@@ -5,6 +5,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import RotateCw from "@lucide/svelte/icons/rotate-cw";
   import Bug from "@lucide/svelte/icons/bug";
+  import History from "@lucide/svelte/icons/history";
 
   // The machine and the auto-check live in updaterInstance.svelte — that
   // way the header's "update ready" dot can read the machine's state even
@@ -15,19 +16,32 @@
   // template instead of dropping them onto a blank issue body.
   const FEEDBACK_URL =
     "https://github.com/TomLefley/oatpad/issues/new/choose";
+  const RELEASES_URL = "https://github.com/TomLefley/oatpad/releases";
 
-  async function reportFeedback(): Promise<void> {
+  async function openExternal(url: string): Promise<void> {
     if (isNative) {
       try {
-        await invoke("open_url", { url: FEEDBACK_URL });
+        await invoke("open_url", { url });
         return;
       } catch {
         // Fall through to window.open if the OS handler refuses —
         // better than dropping the click silently.
       }
     }
-    window.open(FEEDBACK_URL, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank", "noopener,noreferrer");
   }
+
+  // When an update is ready we link to its tag (so users can preview
+  // what they'd get by clicking restart); otherwise to the running
+  // version's tag. If neither exists yet (dev build), fall back to the
+  // releases index.
+  const notesUrl = $derived.by(() => {
+    const v =
+      updater.state === "ready" && updater.pendingVersion
+        ? updater.pendingVersion
+        : versionState.value;
+    return v ? `${RELEASES_URL}/tag/v${v}` : RELEASES_URL;
+  });
 
   const updateLabel = $derived(
     updater.state === "ready" ? "Restart to update" : "Check for updates",
@@ -59,6 +73,14 @@
       {/if}
     </span>
     <div class="footer-actions">
+      <button
+        class="notes-btn"
+        onclick={() => openExternal(notesUrl)}
+        aria-label="View release notes on GitHub"
+        title="View release notes on GitHub"
+      >
+        <History size={16} strokeWidth={2} />
+      </button>
       {#if isNative}
         <button
           class="update-btn"
@@ -79,7 +101,7 @@
       {/if}
       <button
         class="feedback-btn"
-        onclick={reportFeedback}
+        onclick={() => openExternal(FEEDBACK_URL)}
         aria-label="Report a bug on GitHub"
         title="Report a bug on GitHub"
       >
@@ -116,7 +138,8 @@
     gap: 2px;
   }
   .update-btn,
-  .feedback-btn {
+  .feedback-btn,
+  .notes-btn {
     all: unset;
     display: inline-flex;
     align-items: center;
@@ -131,12 +154,14 @@
       background-color 120ms ease;
   }
   .update-btn:hover,
-  .feedback-btn:hover {
+  .feedback-btn:hover,
+  .notes-btn:hover {
     color: var(--accent);
     background: color-mix(in srgb, var(--fg) 10%, transparent);
   }
   .update-btn:focus-visible,
-  .feedback-btn:focus-visible {
+  .feedback-btn:focus-visible,
+  .notes-btn:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
   }

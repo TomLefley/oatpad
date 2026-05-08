@@ -189,6 +189,61 @@ describe("UpdaterRow rendering", () => {
     openSpy.mockRestore();
   });
 
+  it("renders a release-notes button that links to the running version's tag", async () => {
+    getVersion.mockResolvedValueOnce("1.2.3");
+    const { container } = await mountUpdaterRow();
+    const btn = container.querySelector(
+      "button.notes-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    btn.click();
+    await Promise.resolve();
+    expect(invoke).toHaveBeenCalledWith("open_url", {
+      url: "https://github.com/TomLefley/oatpad/releases/tag/v1.2.3",
+    });
+  });
+
+  it("links the release-notes button to the pending version when an update is ready", async () => {
+    getVersion.mockResolvedValueOnce("1.0.0");
+    tauriCheck.mockResolvedValueOnce({
+      version: "2.0.0",
+      download: vi.fn(async () => {}),
+      install: vi.fn(async () => {}),
+    });
+    const { container } = await mountUpdaterRow();
+    const btn = container.querySelector(
+      "button.notes-btn",
+    ) as HTMLButtonElement;
+    btn.click();
+    await Promise.resolve();
+    expect(invoke).toHaveBeenCalledWith("open_url", {
+      url: "https://github.com/TomLefley/oatpad/releases/tag/v2.0.0",
+    });
+  });
+
+  it("shows the release-notes button on web too (not native-gated)", async () => {
+    isNativeFlag = false;
+    const { versionState } = await import("../lib/updaterInstance.svelte");
+    versionState.value = "1.0.0";
+    const openSpy = vi
+      .spyOn(window, "open")
+      .mockReturnValue(null as unknown as Window);
+    const { container } = await mountUpdaterRow({ init: false });
+    const btn = container.querySelector(
+      "button.notes-btn",
+    ) as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    btn.click();
+    await Promise.resolve();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://github.com/TomLefley/oatpad/releases/tag/v1.0.0",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    expect(invoke).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
   it("disables the update button while the machine is busy (e.g. restarting)", async () => {
     getVersion.mockResolvedValueOnce("1.0.0");
     tauriCheck.mockResolvedValueOnce({
