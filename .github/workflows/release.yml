@@ -1,12 +1,14 @@
 name: Release
 
 on:
-  # release-please creates the GitHub Release (as a draft, per its
-  # config) when its release PR merges; we attach the macOS bundle to
-  # that release. workflow_dispatch is the manual escape hatch for
-  # rebuilds against an existing tag.
+  # release-please creates the GitHub Release when its release PR
+  # merges. GitHub deliberately suppresses the `created` event for
+  # API-created drafts, so we trigger on `published` and have
+  # release-please publish directly — the merge of the release PR is
+  # the human review gate. workflow_dispatch is the manual escape
+  # hatch for rebuilds against an existing tag.
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -55,22 +57,6 @@ jobs:
             echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
-      # Patch releases (vX.Y.Z where Z > 0) auto-publish — they're
-      # bug-fix-only and the in-app updater should pick them up
-      # without a human in the loop. Major/minor releases (vX.Y.0) and
-      # anything with a pre-release suffix stay as drafts so we can
-      # review notes and assets before flipping the switch.
-      - name: Decide draft vs auto-publish
-        id: draft
-        run: |
-          tag="${{ steps.tag.outputs.name }}"
-          semver="${tag#v}"
-          if [[ "$semver" =~ ^[0-9]+\.[0-9]+\.[1-9][0-9]*$ ]]; then
-            echo "is_draft=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_draft=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -89,6 +75,10 @@ jobs:
         with:
           tagName: ${{ steps.tag.outputs.name }}
           releaseName: 'Oatpad ${{ steps.tag.outputs.name }}'
-          releaseDraft: ${{ steps.draft.outputs.is_draft }}
+          # release-please already created the release as published
+          # by the time this workflow fires (release: published
+          # trigger). tauri-action attaches artifacts to the existing
+          # release and leaves it published.
+          releaseDraft: false
           prerelease: false
           args: --target universal-apple-darwin
