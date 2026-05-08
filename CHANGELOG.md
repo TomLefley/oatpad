@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/TomLefley/oatpad/compare/v0.7.0...v0.8.0) (2026-05-08)
+
+
+### Features
+
+* tighten release-notes button to update notification ([#28](https://github.com/TomLefley/oatpad/issues/28)) ([fcc191d](https://github.com/TomLefley/oatpad/commit/fcc191dc7338540967df5591e09ec198d696ef8b))
+
+
+### Bug Fixes
+
+* keep header drag working after the WebView gains focus ([#30](https://github.com/TomLefley/oatpad/issues/30)) ([e110593](https://github.com/TomLefley/oatpad/commit/e1105932d0f21718ffb6889ad67ffa8a7c3189fd))
+
 ## [0.7.0](https://github.com/TomLefley/oatpad/compare/v0.6.0...v0.7.0) (2026-05-08)
 
 
