@@ -191,11 +191,18 @@
 
 <style>
   header {
+    /* On native macOS the runtime measurement in lib/trafficLights.ts
+       overrides this default with the OS-rendered traffic-light centre,
+       so the header sizes itself to whatever AppKit actually drew
+       (which differs subtly between debug and codesigned release
+       builds). 26px keeps the original 52px header on web and as a
+       pre-measurement / non-mac fallback. */
+    --traffic-light-center: 26px;
     display: flex;
     align-items: center;
     gap: 12px;
     background: var(--surface);
-    min-height: 52px;
+    min-height: calc(var(--traffic-light-center) * 2);
   }
   /* Web-mode lateral padding (native applies its own via left-col / title). */
   header :global(.title) {
@@ -212,7 +219,10 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 10px var(--tray-padding-right) 10px var(--traffic-light-clearance);
+    /* Vertical breathing comes from the parent header's height; only
+       the lateral padding matters here (clear the OS traffic lights
+       on the left, leave the standard tray gap on the right). */
+    padding: 0 var(--tray-padding-right) 0 var(--traffic-light-clearance);
     background: var(--surface);
     box-sizing: border-box;
     transition:

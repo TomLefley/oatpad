@@ -2049,6 +2049,8 @@ dependencies = [
 name = "oatpad"
 version = "0.6.0"
 dependencies = [
+ "objc2",
+ "objc2-foundation",
  "serde",
  "serde_json",
  "tauri",

@@ -11,6 +11,7 @@
   import { isNative } from "./lib/platform";
   import { isFreshMode } from "./lib/freshMode";
   import { initUpdater, updater } from "./lib/updaterInstance.svelte";
+  import { alignWithTrafficLights } from "./lib/trafficLights";
 
   // Kick off the boot-time update check (and version fetch) here rather
   // than from inside UpdaterRow.svelte, so the header's update-ready dot
@@ -18,6 +19,10 @@
   // initUpdater() is idempotent and short-circuits in web mode.
   $effect(() => {
     initUpdater();
+    // Measure AppKit's traffic-light position once so the header
+    // centres itself against the OS-rendered chrome instead of a
+    // hard-coded value. No-ops on web / non-mac native.
+    alignWithTrafficLights();
   });
 
   const updateReady = $derived(updater.state === "ready");
