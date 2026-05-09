@@ -1,0 +1,148 @@
+name: Release publish
+
+# Fires when a release-please PR merges. release-please creates a
+# draft GitHub Release on merge (draft: true in its config); this
+# workflow attaches the macOS bundle that release-build.yml built
+# earlier in the PR's CI, then flips the release to published. The
+# release is never publicly visible without its assets.
+#
+# workflow_dispatch is the manual escape hatch for re-attaching to
+# an existing release.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to attach the latest release-build artifacts to (e.g. v0.8.1)'
+        required: true
+      head_ref:
+        description: 'Release-please branch name to pull the build run from'
+        required: false
+        default: release-please--branches--main--components--oatpad
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'autorelease: pending'))
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref || inputs.head_ref }}
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Release PR title is "chore(main): release X.Y.Z" — extract.
+          title='${{ github.event.pull_request.title }}'
+          version=$(echo "$title" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1)
+          if [ -z "$version" ]; then
+            echo "Could not parse version from PR title: $title" >&2
+            exit 1
+          fi
+          echo "name=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for draft release
+        id: release
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          # release-please runs on the merge push and creates the draft
+          # asynchronously. Poll for up to ~3 min.
+          deadline=$((SECONDS + 180))
+          while [ $SECONDS -lt $deadline ]; do
+            if gh release view "$TAG" --json isDraft,id --repo "$REPO" >/tmp/rel.json 2>/dev/null; then
+              echo "Found release for $TAG"
+              break
+            fi
+            sleep 10
+          done
+          if [ ! -s /tmp/rel.json ]; then
+            echo "Timed out waiting for release $TAG" >&2
+            exit 1
+          fi
+          cat /tmp/rel.json
+
+      - name: Find the matching build run
+        id: build_run
+        run: |
+          set -euo pipefail
+          # The artifacts live on the latest successful release-build
+          # run for this PR's source branch. The release PR's HEAD
+          # before merge is what the build ran against.
+          run_id=$(gh run list \
+            --workflow=release-build.yml \
+            --branch="$HEAD_REF" \
+            --status=success \
+            --limit=1 \
+            --repo "$REPO" \
+            --json databaseId \
+            --jq '.[0].databaseId')
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "No successful release-build run on $HEAD_REF" >&2
+            exit 1
+          fi
+          echo "id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: macos-bundle
+          path: bundle/
+          run-id: ${{ steps.build_run.outputs.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate latest.json
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          sig_file=$(ls bundle/*.app.tar.gz.sig | head -1)
+          archive=$(ls bundle/*.app.tar.gz | head -1)
+          archive_name=$(basename "$archive")
+          signature=$(cat "$sig_file")
+          asset_url="https://github.com/${REPO}/releases/download/${TAG}/${archive_name}"
+          pub_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          # Universal binary serves both archs from the same archive.
+          jq -n \
+            --arg version "$version" \
+            --arg pub_date "$pub_date" \
+            --arg signature "$signature" \
+            --arg url "$asset_url" \
+            --arg notes "See https://github.com/${REPO}/releases/tag/${TAG}" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-x86_64": { signature: $signature, url: $url },
+                "darwin-aarch64": { signature: $signature, url: $url }
+              }
+            }' > bundle/latest.json
+          cat bundle/latest.json
+
+      - name: Attach artifacts and publish release
+        env:
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          # gh release upload --clobber so a re-run replaces stale assets.
+          gh release upload "$TAG" bundle/* --clobber --repo "$REPO"
+          gh release edit "$TAG" --draft=false --repo "$REPO"
+          echo "Published $TAG with assets:"
+          gh release view "$TAG" --json assets --jq '.assets[].name' --repo "$REPO"
