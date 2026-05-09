@@ -31,27 +31,25 @@
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  // The notes button only shows alongside the "vX.Y.Z available!"
-  // notification, so it always links to the pending version's tag.
+  // The notes link only appears alongside the "vX.Y.Z available!"
+  // notification, so it always points at the pending version's tag.
   const notesUrl = $derived(
     updater.pendingVersion
       ? `${RELEASES_URL}/tag/v${updater.pendingVersion}`
       : RELEASES_URL,
   );
 
-  const updateLabel = $derived(
-    updater.state === "ready" ? "Restart to update" : "Check for updates",
+  const restartTitle = $derived(
+    updater.state === "restarting"
+      ? "Restarting…"
+      : `Restart to install v${updater.pendingVersion}`,
   );
-  const updateTitle = $derived(
-    updater.state === "ready"
-      ? `Restart to install v${updater.pendingVersion}`
-      : updater.state === "restarting"
-        ? "Restarting…"
-        : updater.spinning && updater.state === "downloading"
-          ? "Downloading update…"
-          : updater.spinning
-            ? "Checking…"
-            : "Check for updates",
+  const checkTitle = $derived(
+    updater.spinning && updater.state === "downloading"
+      ? "Downloading update…"
+      : updater.spinning
+        ? "Checking…"
+        : "Check for updates",
   );
 </script>
 
@@ -59,42 +57,43 @@
   <div class="version-row">
     {#if updater.state === "ready" && updater.pendingVersion}
       <button
-        class="notes-btn"
-        onclick={() => openExternal(notesUrl)}
-        aria-label="View release notes on GitHub"
-        title="View release notes on GitHub"
+        class="restart-btn"
+        onclick={() => updater.click()}
+        aria-label={`Restart to install v${updater.pendingVersion}`}
+        title={restartTitle}
+        disabled={updater.busy}
       >
-        <Milestone size={16} strokeWidth={2} />
+        <RotateCw size={16} strokeWidth={2} />
+        <span class="version available">
+          v{updater.pendingVersion} available!
+        </span>
       </button>
-    {/if}
-    <span
-      class="version"
-      class:available={updater.state === "ready" && updater.pendingVersion}
-      aria-label="Oatpad version"
-    >
-      {#if updater.state === "ready" && updater.pendingVersion}
-        v{updater.pendingVersion} available!
-      {:else}
+    {:else}
+      <span class="version" aria-label="Oatpad version">
         v{versionState.value}
-      {/if}
-    </span>
+      </span>
+    {/if}
     <div class="footer-actions">
-      {#if isNative}
+      {#if updater.state === "ready" && updater.pendingVersion}
+        <button
+          class="notes-btn"
+          onclick={() => openExternal(notesUrl)}
+          aria-label="View release notes on GitHub"
+          title="View release notes on GitHub"
+        >
+          <Milestone size={16} strokeWidth={2} />
+        </button>
+      {:else if isNative}
         <button
           class="update-btn"
-          class:active={updater.state === "ready"}
           onclick={() => updater.click()}
-          aria-label={updateLabel}
-          title={updateTitle}
+          aria-label="Check for updates"
+          title={checkTitle}
           disabled={updater.busy}
         >
-          {#if updater.state === "ready"}
-            <RotateCw size={16} strokeWidth={2} />
-          {:else}
-            <span class="icon-wrap" class:spin={updater.spinning}>
-              <RefreshCw size={16} strokeWidth={2} />
-            </span>
-          {/if}
+          <span class="icon-wrap" class:spin={updater.spinning}>
+            <RefreshCw size={16} strokeWidth={2} />
+          </span>
         </button>
       {/if}
       <button
@@ -125,19 +124,46 @@
     color: color-mix(in srgb, var(--fg) 45%, transparent);
     font-variant-numeric: tabular-nums;
     user-select: text;
-    /* Pushes everything after it (the action buttons) to the right
-       edge — equivalent to the old space-between, but works when
-       there's a notes-btn sitting between the version and the row's
-       left edge. */
-    margin-right: auto;
   }
   .version.available {
     color: var(--accent);
     font-weight: 600;
+    /* Inside the restart button text selection would compete with the
+       click target, so don't let it become a drag handle. */
+    user-select: none;
   }
   .footer-actions {
     display: inline-flex;
+    align-items: center;
     gap: 2px;
+    /* Pushes the action buttons to the right edge regardless of whether
+       the leader is the plain version span or the wider restart button. */
+    margin-left: auto;
+  }
+  .restart-btn {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    /* Negative margins extend the hit area without nudging the row's
+       baseline alignment relative to the right-side action buttons. */
+    margin: -2px -6px;
+    border-radius: 6px;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+  .restart-btn:hover {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .restart-btn:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .restart-btn[disabled] {
+    opacity: 0.6;
+    cursor: default;
   }
   .update-btn,
   .feedback-btn,
@@ -166,10 +192,6 @@
   .notes-btn:focus-visible {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
-  }
-  .update-btn.active {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .update-btn[disabled] {
     opacity: 0.5;

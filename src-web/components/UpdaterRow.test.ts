@@ -215,33 +215,32 @@ describe("UpdaterRow rendering", () => {
     });
   });
 
-  it("disables the update button while the machine is busy (e.g. restarting)", async () => {
+  it("renders the version+icon as a single restart button when an update is ready", async () => {
     getVersion.mockResolvedValueOnce("1.0.0");
+    const installMock = vi.fn(async () => {});
     tauriCheck.mockResolvedValueOnce({
       version: "2.0.0",
       download: vi.fn(async () => {}),
-      install: vi.fn(async () => {}),
+      install: installMock,
     });
     const { container } = await mountUpdaterRow();
     const btn = container.querySelector(
-      "button.update-btn",
+      "button.restart-btn",
     ) as HTMLButtonElement;
     expect(btn).not.toBeNull();
-    // Initially: state=ready → not busy.
     expect(btn.disabled).toBe(false);
-    expect(btn.classList.contains("active")).toBe(true);
-    // Click promotes the machine to "restarting" → busy=true → disabled.
+    // The version label is now nested inside the restart button rather
+    // than rendered as a standalone span next to it.
+    const nested = btn.querySelector(".version.available") as HTMLElement;
+    expect(nested?.textContent).toMatch(/v2\.0\.0 available!/);
+    // While the update is ready the right-side action is the release
+    // notes button, not the check-for-updates button.
+    expect(container.querySelector("button.update-btn")).toBeNull();
+    expect(container.querySelector("button.notes-btn")).not.toBeNull();
+    // Clicking it kicks off the restart flow.
     btn.click();
     await settle();
-    // Once the install/relaunch chain returns, the machine is either back
-    // to idle (relaunch threw) or stuck at "restarting" (relaunch never
-    // returns in production). With our mocks, relaunch resolves, so the
-    // process-exit assumption breaks and machine settles to "idle".
-    // What we can pin is that during the click the spinner / restarting
-    // state was reached at least once — the easier observable is that
-    // the rendered title text reflects the active state by the time the
-    // dust settles.
-    const title = btn.title.toLowerCase();
-    expect(["restart to install v2.0.0", "restarting…", "check for updates"]).toContain(title);
+    expect(installMock).toHaveBeenCalled();
+    expect(tauriRelaunch).toHaveBeenCalled();
   });
 });
