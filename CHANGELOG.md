@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/TomLefley/oatpad/compare/v0.8.4...v0.9.0) (2026-05-09)
+
+
+### Features
+
+* make the version row the restart button when an update is ready ([#43](https://github.com/TomLefley/oatpad/issues/43)) ([aab0215](https://github.com/TomLefley/oatpad/commit/aab0215727fd66027701634e8809fb9f048a00ba))
+
 ## [0.8.4](https://github.com/TomLefley/oatpad/compare/v0.8.3...v0.8.4) (2026-05-09)
 
 
