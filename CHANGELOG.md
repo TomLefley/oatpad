@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/TomLefley/oatpad/compare/v0.8.0...v0.8.1) (2026-05-09)
+
+
+### Bug Fixes
+
+* bump fast-uri from 3.1.0 to 3.1.2 in /mcp ([#32](https://github.com/TomLefley/oatpad/issues/32)) ([4556d58](https://github.com/TomLefley/oatpad/commit/4556d580d5382a05e273cb5d44e9aa7d968b9633))
+* make the whole header a drag region, not just the inner spacer ([8e0a5ef](https://github.com/TomLefley/oatpad/commit/8e0a5ef11f05fcb89a2cba425ea5daf6600f119d))
+
 ## [0.8.0](https://github.com/TomLefley/oatpad/compare/v0.7.0...v0.8.0) (2026-05-08)
 
 
