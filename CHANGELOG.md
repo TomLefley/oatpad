@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/TomLefley/oatpad/compare/v0.8.3...v0.8.4) (2026-05-09)
+
+
+### Bug Fixes
+
+* grant core:window:allow-start-dragging so the title bar drags ([7923236](https://github.com/TomLefley/oatpad/commit/79232363e6006aaa8ebb58ce7095f8bc85551e14))
+
 ## [0.8.3](https://github.com/TomLefley/oatpad/compare/v0.8.2...v0.8.3) (2026-05-09)
 
 
