@@ -96,13 +96,16 @@
   });
 </script>
 
-<!-- The whole header is the macOS title-bar drag surface. Tauri's
-     drag.js uses target.closest('[data-tauri-drag-region]') and
-     skips interactive elements (buttons, inputs, etc.), so children
-     inherit the drag without buttons opting in to it. Putting the
-     attribute on a small inner spacer (as we used to) left most of
-     the visible top bar undraggable once the WebView had focus. -->
-<header data-tauri-drag-region>
+<!-- The whole header is the macOS title-bar drag surface. The
+     `="deep"` value (vs bare attr) makes Tauri's drag.js trigger
+     for clicks anywhere in the subtree, walking the composed path
+     upward; clickable elements (button/input/[role=button]/etc.)
+     without their own drag-region attribute block the walk and
+     keep their click semantics. The bare attribute would only
+     trigger on direct clicks on the <header> element itself —
+     which is almost never the click target since children fill
+     the layout. See tauri/src/window/scripts/drag.js. -->
+<header data-tauri-drag-region="deep">
   {#if isNative}
     <div
       class="left-col"
