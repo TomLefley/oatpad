@@ -1,7 +1,6 @@
 <script lang="ts">
   import * as store from "../lib/store.svelte";
   import { isNative, isWeb } from "../lib/platform";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import IconButton from "./IconButton.svelte";
   import ThemeToggle from "./ThemeToggle.svelte";
   import MeetingMeta from "./MeetingMeta.svelte";
@@ -95,32 +94,15 @@
       prevExpanded = expanded;
     }
   });
-
-  // Tauri's `data-tauri-drag-region` auto-handler stops dispatching
-  // mousedown to startDragging once the WebView gains focus on macOS
-  // (a known issue with titleBarStyle: Overlay), so we wire the
-  // window-drag intent ourselves. Mirrors what Tauri's drag.js does:
-  // single click → start dragging, double click → toggle maximize.
-  async function startWindowDrag(e: MouseEvent): Promise<void> {
-    if (!isNative) return;
-    if (e.button !== 0) return;
-    // Only the spacer itself — defensive, even though it's empty
-    // today, in case a child gets added later.
-    if (e.target !== e.currentTarget) return;
-    try {
-      const w = getCurrentWindow();
-      if (e.detail === 2) {
-        await w.toggleMaximize();
-      } else {
-        await w.startDragging();
-      }
-    } catch {
-      // Best-effort: don't break the click if the runtime refuses.
-    }
-  }
 </script>
 
-<header>
+<!-- The whole header is the macOS title-bar drag surface. Tauri's
+     drag.js uses target.closest('[data-tauri-drag-region]') and
+     skips interactive elements (buttons, inputs, etc.), so children
+     inherit the drag without buttons opting in to it. Putting the
+     attribute on a small inner spacer (as we used to) left most of
+     the visible top bar undraggable once the WebView had focus. -->
+<header data-tauri-drag-region>
   {#if isNative}
     <div
       class="left-col"
@@ -189,12 +171,7 @@
       {scheduleBubbleOpen}
       onToggleScheduleBubble={ontogglescheduleBubble}
     />
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="spacer"
-      data-tauri-drag-region
-      onmousedown={startWindowDrag}
-    ></div>
+    <div class="spacer"></div>
     {#if showTitle}
       <OatpadTitle size="header" />
     {/if}
