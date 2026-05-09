@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/TomLefley/oatpad/compare/v0.8.1...v0.8.2) (2026-05-09)
+
+
+### Bug Fixes
+
+* drop drafts to avoid release-please baseline staleness ([538b835](https://github.com/TomLefley/oatpad/commit/538b83507f8ce1eb1fd920d07841b3b583620f00))
+
 ## [0.8.1](https://github.com/TomLefley/oatpad/compare/v0.8.0...v0.8.1) (2026-05-09)
 
 
