@@ -1,0 +1,80 @@
+name: Build (macOS bundle)
+
+# Runs only on release-please PRs. Becomes a required check, so the
+# release PR can't merge until the universal macOS bundle is known to
+# build (and sign) cleanly. Artifacts are uploaded to the workflow run
+# so release-publish.yml can attach them on merge — same bytes that
+# pass CI ship to users.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build macOS bundle
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.head_ref == 'release-please--branches--main--components--oatpad'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            mcp/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tauri-action with no `tagName` builds without creating a
+      # GitHub Release. Signing env vars match release.yml's old
+      # setup so the bundle is codesigned + minisign-signed exactly
+      # as a real release would be.
+      - id: build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        with:
+          args: --target universal-apple-darwin
+
+      - name: Stage bundle artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          # Flatten the universal-apple-darwin bundle output into a
+          # single dir so the publish workflow can grab them without
+          # knowing Tauri's nested layout.
+          bundle_root=src/target/universal-apple-darwin/release/bundle
+          find "$bundle_root/dmg" -maxdepth 1 -name '*.dmg' -exec cp {} out/ \;
+          find "$bundle_root/macos" -maxdepth 1 \
+            \( -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \) \
+            -exec cp {} out/ \;
+          ls -la out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-bundle
+          path: out/
+          if-no-files-found: error
+          retention-days: 14
