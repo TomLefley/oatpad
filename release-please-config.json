@@ -6,7 +6,6 @@
       "package-name": "oatpad",
       "include-v-in-tag": true,
       "include-component-in-tag": false,
-      "draft": true,
       "extra-files": [
         { "type": "json", "path": "package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "src/tauri.conf.json", "jsonpath": "$.version" },
