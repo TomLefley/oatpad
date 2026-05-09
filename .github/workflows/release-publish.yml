@@ -1,10 +1,13 @@
 name: Release publish
 
-# Fires when a release-please PR merges. release-please creates a
-# draft GitHub Release on merge (draft: true in its config); this
-# workflow attaches the macOS bundle that release-build.yml built
-# earlier in the PR's CI, then flips the release to published. The
-# release is never publicly visible without its assets.
+# Fires when a release-please PR merges. release-please publishes the
+# GitHub Release on merge (no drafts — drafts hide from
+# /releases/latest, which broke release-please's own next-release-PR
+# baseline lookup); this workflow attaches the macOS bundle that
+# release-build.yml built earlier in the PR's CI. There's a brief
+# window (~30s) where the release is public without assets — the
+# in-app updater's latest.json request 404s during that window and
+# retries on the next interval. Cosmetic, not breaking.
 #
 # workflow_dispatch is the manual escape hatch for re-attaching to
 # an existing release.
@@ -55,17 +58,18 @@ jobs:
           fi
           echo "name=v${version}" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for draft release
+      - name: Wait for release-please to publish the release
         id: release
         env:
           TAG: ${{ steps.tag.outputs.name }}
         run: |
           set -euo pipefail
-          # release-please runs on the merge push and creates the draft
-          # asynchronously. Poll for up to ~3 min.
+          # release-please runs on the merge push (parallel to us)
+          # and publishes the release asynchronously. Poll for up to
+          # ~3 min while it does its thing.
           deadline=$((SECONDS + 180))
           while [ $SECONDS -lt $deadline ]; do
-            if gh release view "$TAG" --json isDraft,id --repo "$REPO" >/tmp/rel.json 2>/dev/null; then
+            if gh release view "$TAG" --json id --repo "$REPO" >/tmp/rel.json 2>/dev/null; then
               echo "Found release for $TAG"
               break
             fi
@@ -75,7 +79,6 @@ jobs:
             echo "Timed out waiting for release $TAG" >&2
             exit 1
           fi
-          cat /tmp/rel.json
 
       - name: Find the matching build run
         id: build_run
@@ -136,13 +139,16 @@ jobs:
             }' > bundle/latest.json
           cat bundle/latest.json
 
-      - name: Attach artifacts and publish release
+      - name: Attach artifacts to release
         env:
           TAG: ${{ steps.tag.outputs.name }}
         run: |
           set -euo pipefail
-          # gh release upload --clobber so a re-run replaces stale assets.
+          # release-please publishes the release immediately on merge
+          # (no draft), so by the time we get here it's already public —
+          # there's a brief window (~30s) where the release exists with
+          # no assets, during which the in-app updater's latest.json
+          # request 404s and retries on the next interval. Cosmetic.
           gh release upload "$TAG" bundle/* --clobber --repo "$REPO"
-          gh release edit "$TAG" --draft=false --repo "$REPO"
-          echo "Published $TAG with assets:"
+          echo "Attached assets to $TAG:"
           gh release view "$TAG" --json assets --jq '.assets[].name' --repo "$REPO"
