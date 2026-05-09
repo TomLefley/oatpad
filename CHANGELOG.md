@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/TomLefley/oatpad/compare/v0.8.2...v0.8.3) (2026-05-09)
+
+
+### Bug Fixes
+
+* use data-tauri-drag-region="deep" so children inherit the drag ([a4d4532](https://github.com/TomLefley/oatpad/commit/a4d45323da17f83db738165ee1a5672713b67a43))
+
 ## [0.8.2](https://github.com/TomLefley/oatpad/compare/v0.8.1...v0.8.2) (2026-05-09)
 
 
