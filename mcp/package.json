@@ -1,9 +1,9 @@
 {
   "name": "oatpad-mcp",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
-  "description": "MCP server exposing oatpad meeting-note sessions over stdio",
+  "description": "Stdio↔Unix-socket proxy that bridges Claude Desktop to Oatpad's in-app MCP server",
   "scripts": {
     "build": "tsc",
     "prepare": "tsc",
@@ -11,9 +11,7 @@
     "test:watch": "vitest",
     "pack": "npm run build && npm prune --omit=dev && npx -y -p @anthropic-ai/mcpb@^2 mcpb pack . dist/oatpad.mcpb && npm install"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^25.6.2",

@@ -32,6 +32,14 @@
     mcpEnabled = next;
     try {
       await saveConfig({ mcpEnabled: next, mcpInstalled });
+      // Bring the in-app MCP listener in line with the toggle. The
+      // persisted flag also drives auto-start at next launch, but
+      // start/stop here is what makes the change take effect for the
+      // currently-running server. Failure of the start/stop call is
+      // not propagated — the persisted intent is still correct.
+      try {
+        await invoke(next ? "mcp_server_start" : "mcp_server_stop");
+      } catch {}
     } catch {
       // Roll back the optimistic flip if persistence fails — better to
       // mismatch the on-screen state for a moment than to lie about what

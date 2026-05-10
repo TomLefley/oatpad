@@ -1,4 +1,9 @@
-use tauri::Manager;
+mod mcp_server;
+mod meetings;
+
+use std::sync::Arc;
+
+use tauri::{Manager, State};
 
 // Resolves the bundled `oatpad.mcpb` (added via `bundle.resources` in
 // tauri.conf.json) and hands it to the OS's default file handler. On
@@ -93,6 +98,56 @@ fn traffic_light_geometry() -> Result<(f64, f64), String> {
     Err("traffic_light_geometry is macOS-only".into())
 }
 
+// Starts the in-app MCP server. Idempotent — calling while it's
+// already running is a no-op. Bound to a Unix-domain socket inside
+// the app data directory; the bundled `.mcpb` proxy connects there.
+#[tauri::command]
+async fn mcp_server_start(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<mcp_server::State>>,
+) -> Result<(), String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("resolve app data dir: {e}"))?;
+    state.start(dir).await?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn mcp_server_stop(state: State<'_, Arc<mcp_server::State>>) -> Result<(), String> {
+    state.stop().await;
+    Ok(())
+}
+
+// Reports whether the MCP listener is currently running. Lets the
+// settings UI render the toggle's actual state instead of trusting
+// the persisted flag (e.g. if the user toggled it on but the listener
+// failed to bind to its socket, the flag and the reality could drift).
+#[tauri::command]
+async fn mcp_server_is_running(state: State<'_, Arc<mcp_server::State>>) -> Result<bool, String> {
+    Ok(state.is_running().await)
+}
+
+// Reads the persisted mcpEnabled flag from `<app data>/config.json`.
+// Mirrors the JS-side `loadConfig` shape but is owned by Rust so the
+// startup auto-launch isn't gated on the webview being ready. Treats
+// missing/malformed config as enabled to match the prior MCP server's
+// fail-open semantics.
+async fn mcp_enabled_on_disk(app_data_dir: &std::path::Path) -> bool {
+    let path = app_data_dir.join("config.json");
+    let Ok(text) = tokio::fs::read_to_string(&path).await else {
+        return true;
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return true;
+    };
+    value
+        .get("mcpEnabled")
+        .map(|v| v.as_bool().unwrap_or(true))
+        .unwrap_or(true)
+}
+
 // Hands a URL to the OS so the user's default browser opens it.
 // Same dispatch pattern as `open_with_os_handler` — `open` on macOS,
 // `start` on Windows, `xdg-open` on Linux — but accepts a URL string
@@ -121,14 +176,51 @@ fn open_url(url: String) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let mcp_state = Arc::new(mcp_server::State::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(Arc::clone(&mcp_state))
+        .setup({
+            let mcp_state = Arc::clone(&mcp_state);
+            move |app| {
+                // Auto-start the MCP listener at boot when the user has
+                // it toggled on. Failure is non-fatal — surfaces in the
+                // settings UI as "not running" so the user can retry.
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let Ok(dir) = app_handle.path().app_data_dir() else { return };
+                    if mcp_enabled_on_disk(&dir).await {
+                        if let Err(err) = mcp_state.start(dir).await {
+                            eprintln!("Oatpad: MCP auto-start failed: {err}");
+                        }
+                    }
+                });
+                Ok(())
+            }
+        })
+        .on_window_event({
+            let mcp_state = Arc::clone(&mcp_state);
+            move |_window, event| {
+                // Stop the listener when the app is closing so the
+                // socket file is removed and a stale reference doesn't
+                // outlive the process.
+                if let tauri::WindowEvent::Destroyed = event {
+                    let mcp_state = Arc::clone(&mcp_state);
+                    tauri::async_runtime::spawn(async move {
+                        mcp_state.stop().await;
+                    });
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             install_mcpb,
+            mcp_server_is_running,
+            mcp_server_start,
+            mcp_server_stop,
             open_url,
             traffic_light_geometry
         ])
