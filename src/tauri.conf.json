@@ -55,7 +55,7 @@
       "../mcp/dist/oatpad.mcpb": "oatpad.mcpb"
     },
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "26.0",
       "signingIdentity": "Mac Development: Oatpad"
     }
   }
