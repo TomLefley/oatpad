@@ -5,16 +5,16 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/svelte";
 import { tick } from "svelte";
 
-// Settings composes McpRow + UpdaterRow with theme + paragraph-gap controls.
+// Settings composes McpRow + UpdaterRow with theme + spacing controls.
 // Mock the lib helpers so we can assert on the side-effects each control
 // triggers without exercising localStorage / DOM mutation.
 
 const loadTheme = vi.fn(() => "system");
 const saveTheme = vi.fn();
 const applyTheme = vi.fn();
-const loadParagraphGap = vi.fn(() => 0.875);
-const saveParagraphGap = vi.fn();
-const applyParagraphGap = vi.fn();
+const loadSpacing = vi.fn(() => 0.875);
+const saveSpacing = vi.fn();
+const applySpacing = vi.fn();
 
 vi.mock("../lib/theme", () => ({
   loadTheme: () => loadTheme(),
@@ -22,14 +22,14 @@ vi.mock("../lib/theme", () => ({
   applyTheme: (t: string) => applyTheme(t),
 }));
 
-vi.mock("../lib/paragraphGap", () => ({
-  loadParagraphGap: () => loadParagraphGap(),
-  saveParagraphGap: (n: number) => saveParagraphGap(n),
-  applyParagraphGap: (n: number) => applyParagraphGap(n),
-  PARAGRAPH_GAP_MIN: 0,
-  PARAGRAPH_GAP_MAX: 1.75,
-  PARAGRAPH_GAP_STEP: 0.4375,
-  PARAGRAPH_GAP_DEFAULT: 0.875,
+vi.mock("../lib/spacing", () => ({
+  loadSpacing: () => loadSpacing(),
+  saveSpacing: (n: number) => saveSpacing(n),
+  applySpacing: (n: number) => applySpacing(n),
+  SPACING_MIN: 0,
+  SPACING_MAX: 1.75,
+  SPACING_STEP: 0.4375,
+  SPACING_DEFAULT: 0.875,
 }));
 
 // Render-time stubs for the McpRow / UpdaterRow Tauri imports so they
@@ -51,9 +51,9 @@ beforeEach(() => {
   loadTheme.mockReset().mockReturnValue("system");
   saveTheme.mockReset();
   applyTheme.mockReset();
-  loadParagraphGap.mockReset().mockReturnValue(0.875);
-  saveParagraphGap.mockReset();
-  applyParagraphGap.mockReset();
+  loadSpacing.mockReset().mockReturnValue(0.875);
+  saveSpacing.mockReset();
+  applySpacing.mockReset();
 });
 
 async function mountSettings() {
@@ -102,9 +102,9 @@ describe("Settings — theme picker", () => {
   });
 });
 
-describe("Settings — paragraph gap slider", () => {
-  it("oninput calls applyParagraphGap and saveParagraphGap with the new value", async () => {
-    loadParagraphGap.mockReturnValueOnce(0.875);
+describe("Settings — spacing slider", () => {
+  it("oninput calls applySpacing and saveSpacing with the new value", async () => {
+    loadSpacing.mockReturnValueOnce(0.875);
     const { container } = await mountSettings();
     const slider = container.querySelector(
       "input.gap-slider",
@@ -113,8 +113,8 @@ describe("Settings — paragraph gap slider", () => {
     slider.value = "1.3125";
     await fireEvent.input(slider);
     await tick();
-    expect(applyParagraphGap).toHaveBeenCalledWith(1.3125);
-    expect(saveParagraphGap).toHaveBeenCalledWith(1.3125);
+    expect(applySpacing).toHaveBeenCalledWith(1.3125);
+    expect(saveSpacing).toHaveBeenCalledWith(1.3125);
   });
 
   it("renders the slider min/max/step from the lib constants", async () => {
