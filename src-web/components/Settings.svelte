@@ -6,13 +6,13 @@
     type Theme,
   } from "../lib/theme";
   import {
-    loadParagraphGap,
-    saveParagraphGap,
-    applyParagraphGap,
-    PARAGRAPH_GAP_MIN,
-    PARAGRAPH_GAP_MAX,
-    PARAGRAPH_GAP_STEP,
-  } from "../lib/paragraphGap";
+    loadSpacing,
+    saveSpacing,
+    applySpacing,
+    SPACING_MIN,
+    SPACING_MAX,
+    SPACING_STEP,
+  } from "../lib/spacing";
   import McpRow from "./McpRow.svelte";
   import UpdaterRow from "./UpdaterRow.svelte";
   import Sun from "@lucide/svelte/icons/sun";
@@ -20,7 +20,7 @@
   import SunMoon from "@lucide/svelte/icons/sun-moon";
 
   let theme = $state<Theme>(loadTheme());
-  let paragraphGap = $state(loadParagraphGap());
+  let spacing = $state(loadSpacing());
 
   function pickTheme(next: Theme): void {
     if (next === theme) return;
@@ -29,10 +29,10 @@
     applyTheme(next);
   }
 
-  function setParagraphGap(next: number): void {
-    paragraphGap = next;
-    applyParagraphGap(next);
-    saveParagraphGap(next);
+  function setSpacing(next: number): void {
+    spacing = next;
+    applySpacing(next);
+    saveSpacing(next);
   }
 </script>
 
@@ -76,17 +76,17 @@
     </div>
   </div>
   <div class="row">
-    <span class="label">Paragraph gap</span>
+    <span class="label">Spacing</span>
     <input
       class="gap-slider"
       type="range"
-      min={PARAGRAPH_GAP_MIN}
-      max={PARAGRAPH_GAP_MAX}
-      step={PARAGRAPH_GAP_STEP}
-      value={paragraphGap}
-      oninput={(e) => setParagraphGap(Number(e.currentTarget.value))}
+      min={SPACING_MIN}
+      max={SPACING_MAX}
+      step={SPACING_STEP}
+      value={spacing}
+      oninput={(e) => setSpacing(Number(e.currentTarget.value))}
       aria-label="Space between paragraphs"
-      title="{paragraphGap.toFixed(3).replace(/\.?0+$/, '')}em"
+      title="{spacing.toFixed(3).replace(/\.?0+$/, '')}em"
     />
   </div>
   <McpRow />

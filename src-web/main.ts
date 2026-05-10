@@ -3,14 +3,14 @@ import App from "./App.svelte";
 import "./lib/platform";
 import * as store from "./lib/store.svelte";
 import { loadTheme, applyTheme } from "./lib/theme";
-import { loadParagraphGap, applyParagraphGap } from "./lib/paragraphGap";
+import { loadSpacing, applySpacing } from "./lib/spacing";
 import "@fontsource-variable/manrope";
 import "@fontsource/poppins/600.css";
 import "quill/dist/quill.bubble.css";
 import "./app.css";
 
 applyTheme(loadTheme());
-applyParagraphGap(loadParagraphGap());
+applySpacing(loadSpacing());
 
 const target = document.getElementById("app");
 if (!target) throw new Error("#app not found");
