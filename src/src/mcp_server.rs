@@ -7,8 +7,9 @@
 // Node process reading files behind our back.
 //
 // Started/stopped explicitly by the Tauri commands at the bottom of
-// the file. `start_with_initial_state` runs the auto-start at boot
-// when the user has the toggle on.
+// the file. The `notifier` callback (set by `lib.rs`) lets us tell the
+// running app "the meetings directory just changed" so the sidebar
+// can refresh without waiting for a relaunch.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -35,6 +36,21 @@ const ERR_METHOD_NOT_FOUND: i64 = -32601;
 const ERR_INVALID_PARAMS: i64 = -32602;
 const ERR_INTERNAL: i64 = -32603;
 
+// Fired after a write-mutating tool (currently just `schedule_meeting`)
+// successfully alters the meetings directory. The host (lib.rs) wires
+// this to a Tauri event the webview listens for so the sidebar can
+// refresh in real time.
+pub type Notifier = Arc<dyn Fn() + Send + Sync>;
+
+// Per-connection context. Built once when the listener starts and
+// passed by Arc through accept → connection → message → tool dispatch
+// so handlers can both touch the meetings directory and emit
+// notifications without re-resolving paths.
+struct Context {
+    meetings_dir: PathBuf,
+    notifier: Option<Notifier>,
+}
+
 #[derive(Default)]
 pub struct State {
     inner: Mutex<Option<RunningServer>>,
@@ -53,7 +69,13 @@ impl State {
 
     // Starts the listener if it isn't already. Returns the socket
     // path. Idempotent — calling twice without a stop is a no-op.
-    pub async fn start(&self, app_data_dir: PathBuf) -> Result<PathBuf, String> {
+    // `notifier` is invoked whenever a write-mutating tool succeeds;
+    // pass `None` to opt out (tests, headless use).
+    pub async fn start(
+        &self,
+        app_data_dir: PathBuf,
+        notifier: Option<Notifier>,
+    ) -> Result<PathBuf, String> {
         let mut guard = self.inner.lock().await;
         if let Some(running) = guard.as_ref() {
             return Ok(running.socket_path.clone());
@@ -71,8 +93,12 @@ impl State {
         let listener = UnixListener::bind(&socket_path).map_err(|e| format!("bind: {e}"))?;
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let socket_for_task = socket_path.clone();
+        let ctx = Arc::new(Context {
+            meetings_dir,
+            notifier,
+        });
         let handle = tauri::async_runtime::spawn(async move {
-            run_listener(listener, meetings_dir, cancel_rx).await;
+            run_listener(listener, ctx, cancel_rx).await;
             // Best-effort cleanup so a clean stop doesn't leave a dangling
             // socket file that ENOENTs on the next start.
             let _ = tokio::fs::remove_file(&socket_for_task).await;
@@ -98,25 +124,24 @@ impl State {
 
 async fn run_listener(
     listener: UnixListener,
-    meetings_dir: PathBuf,
+    ctx: Arc<Context>,
     mut cancel: oneshot::Receiver<()>,
 ) {
-    let meetings_dir = Arc::new(meetings_dir);
     loop {
         tokio::select! {
             _ = &mut cancel => break,
             accepted = listener.accept() => {
                 let Ok((stream, _addr)) = accepted else { continue };
-                let dir = Arc::clone(&meetings_dir);
+                let ctx = Arc::clone(&ctx);
                 tauri::async_runtime::spawn(async move {
-                    handle_connection(stream, dir).await;
+                    handle_connection(stream, ctx).await;
                 });
             }
         }
     }
 }
 
-async fn handle_connection(stream: UnixStream, meetings_dir: Arc<PathBuf>) {
+async fn handle_connection(stream: UnixStream, ctx: Arc<Context>) {
     let (reader, mut writer) = stream.into_split();
     let mut lines = BufReader::new(reader).lines();
     loop {
@@ -128,7 +153,7 @@ async fn handle_connection(stream: UnixStream, meetings_dir: Arc<PathBuf>) {
             continue;
         }
         let response = match serde_json::from_str::<Value>(&line) {
-            Ok(req) => handle_message(req, meetings_dir.as_ref()).await,
+            Ok(req) => handle_message(req, &ctx).await,
             Err(_) => Some(error_response(Value::Null, ERR_PARSE, "Parse error")),
         };
         let Some(response) = response else { continue };
@@ -148,7 +173,7 @@ async fn handle_connection(stream: UnixStream, meetings_dir: Arc<PathBuf>) {
 
 // Returns None for notifications (no `id`), which JSON-RPC says must
 // not be answered.
-async fn handle_message(req: Value, meetings_dir: &Path) -> Option<Value> {
+async fn handle_message(req: Value, ctx: &Context) -> Option<Value> {
     let id = req.get("id").cloned();
     let method = req.get("method").and_then(Value::as_str);
     let params = req.get("params").cloned().unwrap_or(Value::Null);
@@ -166,7 +191,7 @@ async fn handle_message(req: Value, meetings_dir: &Path) -> Option<Value> {
     match method {
         "initialize" => Some(success(id, initialize_result(&params))),
         "tools/list" => Some(success(id, tools_list_result())),
-        "tools/call" => Some(handle_tools_call(id, params, meetings_dir).await),
+        "tools/call" => Some(handle_tools_call(id, params, ctx).await),
         "ping" => Some(success(id, json!({}))),
         _ => Some(error_response(id, ERR_METHOD_NOT_FOUND, "Method not found")),
     }
@@ -295,16 +320,19 @@ struct ToolCallParams {
     arguments: Value,
 }
 
-async fn handle_tools_call(id: Value, params: Value, meetings_dir: &Path) -> Value {
+async fn handle_tools_call(id: Value, params: Value, ctx: &Context) -> Value {
     let parsed: ToolCallParams = match serde_json::from_value(params) {
         Ok(p) => p,
         Err(e) => return error_response(id, ERR_INVALID_PARAMS, &format!("Invalid params: {e}")),
     };
-    let result = match parsed.name.as_str() {
-        "list_meetings" => tool_list_meetings(parsed.arguments, meetings_dir).await,
-        "get_meeting" => tool_get_meeting(parsed.arguments, meetings_dir).await,
-        "get_meetings_in_range" => tool_get_meetings_in_range(parsed.arguments, meetings_dir).await,
-        "schedule_meeting" => tool_schedule_meeting(parsed.arguments, meetings_dir).await,
+    let dir = ctx.meetings_dir.as_path();
+    let (result, mutated) = match parsed.name.as_str() {
+        "list_meetings" => (tool_list_meetings(parsed.arguments, dir).await, false),
+        "get_meeting" => (tool_get_meeting(parsed.arguments, dir).await, false),
+        "get_meetings_in_range" => {
+            (tool_get_meetings_in_range(parsed.arguments, dir).await, false)
+        }
+        "schedule_meeting" => (tool_schedule_meeting(parsed.arguments, dir).await, true),
         other => {
             return error_response(
                 id,
@@ -313,6 +341,14 @@ async fn handle_tools_call(id: Value, params: Value, meetings_dir: &Path) -> Val
             );
         }
     };
+    // Fire the change notification only when the tool was both
+    // intended to mutate and actually succeeded — bad args or IO
+    // failures shouldn't trigger a sidebar refresh.
+    if mutated && result.is_ok() {
+        if let Some(notifier) = ctx.notifier.as_ref() {
+            notifier();
+        }
+    }
     match result {
         Ok(value) => success(id, tool_text_result(&value)),
         Err(ToolError::BadArgs(msg)) => error_response(id, ERR_INVALID_PARAMS, &msg),
@@ -496,7 +532,7 @@ mod tests {
     async fn initialize_then_tools_list() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
 
         let init = round_trip(
             &socket,
@@ -531,7 +567,7 @@ mod tests {
     async fn schedule_then_list_round_trip() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
 
         let scheduled = round_trip(
             &socket,
@@ -574,7 +610,7 @@ mod tests {
     async fn get_meeting_missing_returns_tool_error_not_jsonrpc_error() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
 
         let resp = round_trip(
             &socket,
@@ -600,7 +636,7 @@ mod tests {
     async fn unknown_method_returns_jsonrpc_error() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
 
         let resp = round_trip(
             &socket,
@@ -616,7 +652,7 @@ mod tests {
     async fn stop_removes_socket_file() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
         assert!(socket.exists());
         state.stop().await;
         assert!(!socket.exists());
@@ -626,9 +662,9 @@ mod tests {
     async fn start_after_stop_works() {
         let tmp = TempDir::new().unwrap();
         let state = State::default();
-        let _ = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let _ = state.start(tmp.path().to_path_buf(), None).await.unwrap();
         state.stop().await;
-        let socket = state.start(tmp.path().to_path_buf()).await.unwrap();
+        let socket = state.start(tmp.path().to_path_buf(), None).await.unwrap();
         // Should be able to talk to it again.
         let resp = round_trip(
             &socket,
@@ -636,6 +672,110 @@ mod tests {
         )
         .await;
         assert!(resp.get("result").is_some());
+        state.stop().await;
+    }
+
+    #[tokio::test]
+    async fn schedule_meeting_fires_notifier_exactly_once() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let tmp = TempDir::new().unwrap();
+        let state = State::default();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_for_notifier = Arc::clone(&calls);
+        let notifier: Notifier = Arc::new(move || {
+            calls_for_notifier.fetch_add(1, Ordering::SeqCst);
+        });
+        let socket = state
+            .start(tmp.path().to_path_buf(), Some(notifier))
+            .await
+            .unwrap();
+
+        let resp = round_trip(
+            &socket,
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "schedule_meeting",
+                    "arguments": {
+                        "title": "Quarterly review",
+                        "scheduledStartAt": "2026-06-15T14:00:00.000Z"
+                    }
+                }
+            }),
+        )
+        .await;
+        assert!(resp["result"]["isError"].as_bool() != Some(true));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        state.stop().await;
+    }
+
+    #[tokio::test]
+    async fn read_only_tools_do_not_fire_notifier() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let tmp = TempDir::new().unwrap();
+        let state = State::default();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_for_notifier = Arc::clone(&calls);
+        let notifier: Notifier = Arc::new(move || {
+            calls_for_notifier.fetch_add(1, Ordering::SeqCst);
+        });
+        let socket = state
+            .start(tmp.path().to_path_buf(), Some(notifier))
+            .await
+            .unwrap();
+
+        let _ = round_trip(
+            &socket,
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": { "name": "list_meetings", "arguments": {} }
+            }),
+        )
+        .await;
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+        state.stop().await;
+    }
+
+    #[tokio::test]
+    async fn failing_schedule_does_not_fire_notifier() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let tmp = TempDir::new().unwrap();
+        let state = State::default();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_for_notifier = Arc::clone(&calls);
+        let notifier: Notifier = Arc::new(move || {
+            calls_for_notifier.fetch_add(1, Ordering::SeqCst);
+        });
+        let socket = state
+            .start(tmp.path().to_path_buf(), Some(notifier))
+            .await
+            .unwrap();
+
+        // Empty title — schedule_meeting rejects, must not notify.
+        let _ = round_trip(
+            &socket,
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "schedule_meeting",
+                    "arguments": {
+                        "title": "  ",
+                        "scheduledStartAt": "2026-06-15T14:00:00.000Z"
+                    }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+
         state.stop().await;
     }
 }

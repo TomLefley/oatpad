@@ -256,6 +256,17 @@ export function startNewMeeting(): void {
   persist();
 }
 
+// Re-reads the meetings directory and updates the sidebar list. Used
+// by the Tauri "meetings-changed" listener when the in-app MCP server
+// has just written a new file — without this the sidebar would only
+// pick up MCP-scheduled meetings on next launch. Currently-loaded
+// meeting state is left alone; only `state.meetings` is refreshed.
+export async function refreshMeetings(): Promise<void> {
+  if (!isNative) return;
+  const { listMeetings } = await import("./meetings");
+  state.meetings = await listMeetings();
+}
+
 export async function switchMeeting(id: string): Promise<void> {
   if (!isNative) return;
   if (state.meeting?.meetingId === id) return;

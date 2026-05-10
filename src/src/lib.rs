@@ -3,7 +3,24 @@ mod meetings;
 
 use std::sync::Arc;
 
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
+
+// Tauri event the webview listens for so the sidebar can refresh
+// after the in-app MCP server writes a new meeting. The string is
+// duplicated in `src-web/App.svelte` — both ends must agree.
+const MEETINGS_CHANGED_EVENT: &str = "oatpad://meetings-changed";
+
+// Builds the callback the MCP server fires when it has just mutated
+// the meetings directory. Cloning AppHandle is cheap; we capture one
+// per server start so the closure outlives the calling Tauri command.
+fn meetings_changed_notifier(app: tauri::AppHandle) -> mcp_server::Notifier {
+    Arc::new(move || {
+        // Best-effort emit — if no window is up to receive it (cold
+        // start before the webview mounts), the next sidebar load
+        // will pick up the file from disk anyway.
+        let _ = app.emit(MEETINGS_CHANGED_EVENT, ());
+    })
+}
 
 // Resolves the bundled `oatpad.mcpb` (added via `bundle.resources` in
 // tauri.conf.json) and hands it to the OS's default file handler. On
@@ -110,7 +127,8 @@ async fn mcp_server_start(
         .path()
         .app_data_dir()
         .map_err(|e| format!("resolve app data dir: {e}"))?;
-    state.start(dir).await?;
+    let notifier = meetings_changed_notifier(app.clone());
+    state.start(dir, Some(notifier)).await?;
     Ok(())
 }
 
@@ -194,7 +212,8 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     let Ok(dir) = app_handle.path().app_data_dir() else { return };
                     if mcp_enabled_on_disk(&dir).await {
-                        if let Err(err) = mcp_state.start(dir).await {
+                        let notifier = meetings_changed_notifier(app_handle.clone());
+                        if let Err(err) = mcp_state.start(dir, Some(notifier)).await {
                             eprintln!("Oatpad: MCP auto-start failed: {err}");
                         }
                     }

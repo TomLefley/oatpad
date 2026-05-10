@@ -9,6 +9,8 @@
       "extra-files": [
         { "type": "json", "path": "package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "src/tauri.conf.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "mcp/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "mcp/manifest.json", "jsonpath": "$.version" },
         { "type": "generic", "path": "src/Cargo.toml" }
       ]
     }
