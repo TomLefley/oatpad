@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/TomLefley/oatpad/compare/v0.9.0...v0.10.0) (2026-05-10)
+
+
+### Features
+
+* add date range support and clear buttons to search ([#47](https://github.com/TomLefley/oatpad/issues/47)) ([57ab062](https://github.com/TomLefley/oatpad/commit/57ab06284a19a264a17e300bee936eb80c6e43ea))
+
 ## [0.9.0](https://github.com/TomLefley/oatpad/compare/v0.8.4...v0.9.0) (2026-05-09)
 
 
