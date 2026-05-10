@@ -23,6 +23,12 @@ export type CalendarCell = {
   ymd: string;
   hasMeeting: boolean;
   isToday: boolean;
+  // Range selection markers. `isRangeStart` and `isRangeEnd` are the
+  // endpoints; `inRange` is the strictly-interior days when both endpoints
+  // are set. A single-day selection lights up only `isRangeStart`.
+  isRangeStart: boolean;
+  isRangeEnd: boolean;
+  inRange: boolean;
 };
 
 // Builds a 6×7 (42-cell) Monday-first grid for the given month.
@@ -32,6 +38,8 @@ export function buildCalendarCells(
   viewMonth: Date,
   meetingDates: Set<string>,
   today: Date,
+  rangeStart: string | null = null,
+  rangeEnd: string | null = null,
 ): (CalendarCell | null)[] {
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
@@ -44,11 +52,21 @@ export function buildCalendarCells(
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
   for (let d = 1; d <= last.getDate(); d++) {
     const ymd = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const isRangeStart = ymd === rangeStart;
+    const isRangeEnd = rangeEnd !== null && ymd === rangeEnd;
+    const inRange =
+      rangeStart !== null &&
+      rangeEnd !== null &&
+      ymd > rangeStart &&
+      ymd < rangeEnd;
     cells.push({
       day: d,
       ymd,
       hasMeeting: meetingDates.has(ymd),
       isToday: ymd === todayYmd,
+      isRangeStart,
+      isRangeEnd,
+      inRange,
     });
   }
   while (cells.length < 42) cells.push(null);

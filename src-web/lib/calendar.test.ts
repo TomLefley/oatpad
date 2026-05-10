@@ -93,6 +93,42 @@ describe("buildCalendarCells", () => {
     for (let i = 0; i < 6; i++) expect(cells[i]).toBeNull();
     expect((cells[6] as CalendarCell).day).toBe(1);
   });
+
+  it("flags a single-day selection on isRangeStart only", () => {
+    const cells = buildCalendarCells(april, new Set(), today, "2026-04-15");
+    const real = cells.filter((c): c is CalendarCell => c !== null);
+    const start = real.filter((c) => c.isRangeStart).map((c) => c.ymd);
+    expect(start).toEqual(["2026-04-15"]);
+    expect(real.some((c) => c.isRangeEnd)).toBe(false);
+    expect(real.some((c) => c.inRange)).toBe(false);
+  });
+
+  it("flags both endpoints and the strictly-interior days of a range", () => {
+    const cells = buildCalendarCells(
+      april,
+      new Set(),
+      today,
+      "2026-04-10",
+      "2026-04-13",
+    );
+    const real = cells.filter((c): c is CalendarCell => c !== null);
+    expect(real.filter((c) => c.isRangeStart).map((c) => c.ymd)).toEqual([
+      "2026-04-10",
+    ]);
+    expect(real.filter((c) => c.isRangeEnd).map((c) => c.ymd)).toEqual([
+      "2026-04-13",
+    ]);
+    expect(real.filter((c) => c.inRange).map((c) => c.ymd)).toEqual([
+      "2026-04-11",
+      "2026-04-12",
+    ]);
+  });
+
+  it("leaves all range fields false when no selection is given", () => {
+    const cells = buildCalendarCells(april, new Set(), today);
+    const real = cells.filter((c): c is CalendarCell => c !== null);
+    expect(real.every((c) => !c.isRangeStart && !c.isRangeEnd && !c.inRange)).toBe(true);
+  });
 });
 
 describe("fmtTimestamp", () => {

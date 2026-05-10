@@ -39,13 +39,22 @@
   // surface; the filter it represents is part of the sidebar's state.
   let searchMode = $state<SearchMode>("text");
   let searchQuery = $state("");
-  let selectedDate = $state<string | null>(null);
+  // rangeStart alone = single-day filter; both = inclusive range. Both null
+  // means "no date filter".
+  let rangeStart = $state<string | null>(null);
+  let rangeEnd = $state<string | null>(null);
   let viewMonth = $state(monthStart(new Date()));
   const filteredMeetings = $derived(
-    filterMeetings(store.state.meetings, searchMode, searchQuery, selectedDate),
+    filterMeetings(
+      store.state.meetings,
+      searchMode,
+      searchQuery,
+      rangeStart,
+      rangeEnd,
+    ),
   );
   $effect(() => {
-    searchActive = searchQuery !== "" || selectedDate !== null;
+    searchActive = searchQuery !== "" || rangeStart !== null;
   });
 
   // Both bubbles measure their content height; the spacer above the list is
@@ -142,7 +151,8 @@
         onclose={() => oncloseSearch?.()}
         bind:searchMode
         bind:searchQuery
-        bind:selectedDate
+        bind:rangeStart
+        bind:rangeEnd
         bind:viewMonth
         bind:contentHeight={searchContentHeight}
       />
