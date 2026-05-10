@@ -8,10 +8,15 @@ also schedule new ones for a future slot.
 
 | Tool | What it does |
 | --- | --- |
-| `list_meetings(titleQuery?, start?, end?, limit?)` | Search/list meeting summaries, newest first. `titleQuery` is a case-insensitive substring matched against the meeting title only — note text is **not** searched, mirroring Oatpad's sidebar. `start`/`end` are ISO 8601 datetime bounds compared against effective time (`scheduledStartAt ?? createdAt`). Each summary includes `meetingId`, `title`, `displayName`, `createdAt`, optional `scheduledStartAt`, `notetaker`, and `started` (true once the meeting has any user-written note). |
-| `get_meeting(meetingId)` | One meeting by id. Returns the full `OatsFile` JSON — events log, editor snapshot, paragraph IDs, metadata. To search inside note content, pull a meeting with this and inspect its events log. |
-| `get_meetings_in_range(start, end, titleQuery?, limit?)` | Full `OatsFile`s for every meeting whose effective time falls in `[start, end]` (ISO 8601, inclusive). Optional `titleQuery` (title-only substring) and `limit`. Newest first. Use this when you need full content for many meetings; otherwise prefer `list_meetings`. |
-| `schedule_meeting(title, scheduledStartAt, notetaker?)` | Create a new meeting planned for a specific time. Writes a fresh `.oats` file with the given title and `scheduledStartAt`. Returns the new summary. Oatpad shows it as scheduled-but-not-started until the user opens it. |
+| `list_meetings(titleQuery?, start?, end?, limit?)` | Search/list meeting summaries, newest first. `titleQuery` is a case-insensitive substring matched against the meeting title only — note text is **not** searched, mirroring Oatpad's sidebar. `start`/`end` are ISO 8601 datetime bounds compared against effective time (`scheduledStartAt ?? createdAt`). Each summary includes `meetingId`, `title`, `displayName`, `createdAt`, optional `scheduledStartAt`, `notetaker`, `started` (true once the meeting has any user-written note), and `link` (an `oats://meeting/<id>` URL that opens the meeting in the desktop app). |
+| `get_meeting(meetingId)` | One meeting by id. Returns the full `OatsFile` JSON — events log, editor snapshot, paragraph IDs, metadata — augmented with a `link` field (`oats://meeting/<id>`). To search inside note content, pull a meeting with this and inspect its events log. |
+| `get_meetings_in_range(start, end, titleQuery?, limit?)` | Full `OatsFile`s for every meeting whose effective time falls in `[start, end]` (ISO 8601, inclusive), each augmented with a `link` field (`oats://meeting/<id>`). Optional `titleQuery` (title-only substring) and `limit`. Newest first. Use this when you need full content for many meetings; otherwise prefer `list_meetings`. |
+| `schedule_meeting(title, scheduledStartAt, notetaker?)` | Create a new meeting planned for a specific time. Writes a fresh `.oats` file with the given title and `scheduledStartAt`. Returns the new summary, including an `oats://meeting/<id>` link. Oatpad shows it as scheduled-but-not-started until the user opens it. |
+
+The `oats://` links are handled by the desktop app's deep-link
+registration: clicking one (or running `open oats://meeting/<id>` on
+macOS) opens that meeting directly in Oatpad. Only resolvable on
+machines where the `.app` is installed.
 
 ## Where the data lives
 

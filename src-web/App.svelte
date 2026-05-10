@@ -12,6 +12,7 @@
   import { isFreshMode } from "./lib/freshMode";
   import { initUpdater, updater } from "./lib/updaterInstance.svelte";
   import { alignWithTrafficLights } from "./lib/trafficLights";
+  import { initDeepLinks } from "./lib/deepLink";
 
   // Kick off the boot-time update check (and version fetch) here rather
   // than from inside UpdaterRow.svelte, so the header's update-ready dot
@@ -23,6 +24,28 @@
     // centres itself against the OS-rendered chrome instead of a
     // hard-coded value. No-ops on web / non-mac native.
     alignWithTrafficLights();
+  });
+
+  // Subscribe to oats:// deep links. Cold-start URLs are replayed once
+  // the listener is attached; subsequent activations come through
+  // onOpenUrl. No-ops on web — the plugin lives only in the .app.
+  $effect(() => {
+    let unlisten: (() => void) | null = null;
+    void initDeepLinks({
+      onMeeting: async (id) => {
+        if (store.state.meeting?.meetingId === id) {
+          // Already viewing it — bring focus back without thrashing the
+          // editor through a flush/reload cycle.
+          sidebarCollapsed = false;
+          return;
+        }
+        await handleSwitch(id);
+        sidebarCollapsed = false;
+      },
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => unlisten?.();
   });
 
   const updateReady = $derived(updater.state === "ready");

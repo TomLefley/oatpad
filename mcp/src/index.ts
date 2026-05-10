@@ -24,8 +24,10 @@ import {
   getMeetingsInRange,
   isMcpEnabled,
   listMeetings,
+  meetingLink,
   scheduleMeeting,
   type MeetingFilter,
+  type OatsFile,
 } from "./meetings.js";
 
 const APP_DATA = appDataDir();
@@ -51,7 +53,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "list_meetings",
       description:
-        "Search and list Oatpad meeting summaries, newest first by effective time (scheduledStartAt when set, else createdAt). All filters are optional and combine with AND. Each summary has: meetingId, title (verbatim), displayName (\"meeting\" when title is blank), createdAt (ISO), optional scheduledStartAt (ISO; present when an external creator like a calendar sync or schedule_meeting planned the slot), notetaker, and started (true once the meeting has any user-written note — useful for spotting upcoming-but-not-yet-started meetings). Search is title-only here, matching Oatpad's sidebar. Use this for discovery; call get_meeting to fetch the full content of a specific entry, or get_meetings_in_range when you want full content for many meetings at once.",
+        "Search and list Oatpad meeting summaries, newest first by effective time (scheduledStartAt when set, else createdAt). All filters are optional and combine with AND. Each summary has: meetingId, title (verbatim), displayName (\"meeting\" when title is blank), createdAt (ISO), optional scheduledStartAt (ISO; present when an external creator like a calendar sync or schedule_meeting planned the slot), notetaker, started (true once the meeting has any user-written note — useful for spotting upcoming-but-not-yet-started meetings), and link (an `oats://meeting/<id>` URL that opens the meeting in the desktop app). Search is title-only here, matching Oatpad's sidebar. Use this for discovery; call get_meeting to fetch the full content of a specific entry, or get_meetings_in_range when you want full content for many meetings at once.",
       inputSchema: {
         type: "object",
         properties: {
@@ -83,7 +85,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_meeting",
       description:
-        "Retrieve a single Oatpad meeting by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata). Note events are: `note_updated` (zero-or-more per noteId, carries the full text at a settled checkpoint — emitted when the user pauses for ~1.5s after crossing a word boundary while editing, when they leave the note, or when they substitute a complete word; rapid edit-rewrite bursts coalesce into a single event capturing the latest settled text rather than each intermediate boundary); `note_deleted` (when the paragraph is removed; only fires for paragraphs that previously emitted at least one `note_updated`, so phantom paragraphs from accidental keypresses leave no trace). Legacy meetings may also contain `note_created` (a content-less paragraph-appeared marker) — treat as informational only.",
+        "Retrieve a single Oatpad meeting by id. Returns the full OatsFile JSON (events log + editor snapshot + metadata) plus a synthetic `link` field — an `oats://meeting/<id>` URL that opens the meeting in the desktop app. Note events are: `note_updated` (zero-or-more per noteId, carries the full text at a settled checkpoint — emitted when the user pauses for ~1.5s after crossing a word boundary while editing, when they leave the note, or when they substitute a complete word; rapid edit-rewrite bursts coalesce into a single event capturing the latest settled text rather than each intermediate boundary); `note_deleted` (when the paragraph is removed; only fires for paragraphs that previously emitted at least one `note_updated`, so phantom paragraphs from accidental keypresses leave no trace). Legacy meetings may also contain `note_created` (a content-less paragraph-appeared marker) — treat as informational only.",
       inputSchema: {
         type: "object",
         properties: {
@@ -99,7 +101,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_meetings_in_range",
       description:
-        "Retrieve full OatsFile JSON for every Oatpad meeting whose effective time (scheduledStartAt ?? createdAt) falls within the given ISO 8601 datetime range, inclusive on both ends. Returns full content, newest first. Prefer list_meetings for browsing — only reach for this when you genuinely need the events log or editor snapshot for many meetings at once.",
+        "Retrieve full OatsFile JSON for every Oatpad meeting whose effective time (scheduledStartAt ?? createdAt) falls within the given ISO 8601 datetime range, inclusive on both ends. Returns full content, newest first, each entry augmented with an `oats://meeting/<id>` link that opens it in the desktop app. Prefer list_meetings for browsing — only reach for this when you genuinely need the events log or editor snapshot for many meetings at once.",
       inputSchema: {
         type: "object",
         properties: {
@@ -132,7 +134,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "schedule_meeting",
       description:
-        "Create a new Oatpad meeting planned for a specific time. Writes a fresh `.oats` file with the given title and scheduledStartAt; Oatpad's sidebar will show it as scheduled-but-not-started until the user opens it. The app reads the meetings directory on launch and on sidebar refresh, so a meeting scheduled while Oatpad is open may not appear until the user reopens it. Returns the new meeting's summary, including the generated meetingId.",
+        "Create a new Oatpad meeting planned for a specific time. Writes a fresh `.oats` file with the given title and scheduledStartAt; Oatpad's sidebar will show it as scheduled-but-not-started until the user opens it. The app reads the meetings directory on launch and on sidebar refresh, so a meeting scheduled while Oatpad is open may not appear until the user reopens it. Returns the new meeting's summary — including the generated meetingId and a `link` (`oats://meeting/<id>`) that opens it in the desktop app.",
       inputSchema: {
         type: "object",
         properties: {
@@ -158,6 +160,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
   ],
 }));
+
+// Adds a synthetic `link` field to an OatsFile response so clients can
+// surface a clickable `oats://meeting/<id>` URL alongside the meeting
+// content. The link is derived at response time, not stored on disk.
+function withLink(file: OatsFile): OatsFile & { link: string } {
+  return { ...file, link: meetingLink(file.meetingId) };
+}
 
 function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
@@ -224,7 +233,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       };
     }
     return {
-      content: [{ type: "text", text: JSON.stringify(meeting, null, 2) }],
+      content: [
+        { type: "text", text: JSON.stringify(withLink(meeting), null, 2) },
+      ],
     };
   }
 
@@ -250,7 +261,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     }
     const meetings = await getMeetingsInRange(MEETINGS_DIR, start, end, options);
     return {
-      content: [{ type: "text", text: JSON.stringify(meetings, null, 2) }],
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(meetings.map(withLink), null, 2),
+        },
+      ],
     };
   }
 
