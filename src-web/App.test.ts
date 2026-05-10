@@ -91,6 +91,12 @@ vi.mock("@tauri-apps/plugin-deep-link", () => ({
   onOpenUrl: vi.fn().mockResolvedValue(() => {}),
   getCurrent: vi.fn().mockResolvedValue(null),
 }));
+// `@tauri-apps/api/event::listen` would otherwise reach into
+// window.__TAURI_INTERNALS__ on mount when the meetings-changed
+// listener is attached. Stub it to a no-op unsubscriber.
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
 
 beforeEach(() => {
   storeState.meeting = null;

@@ -14,6 +14,11 @@
   import { alignWithTrafficLights } from "./lib/trafficLights";
   import { initDeepLinks } from "./lib/deepLink";
 
+  // Tauri event the in-app MCP server fires after it has just written a
+  // new meeting (currently only schedule_meeting). Mirrored in
+  // `src/src/lib.rs` as `MEETINGS_CHANGED_EVENT` — both ends must agree.
+  const MEETINGS_CHANGED_EVENT = "oatpad://meetings-changed";
+
   // Kick off the boot-time update check (and version fetch) here rather
   // than from inside UpdaterRow.svelte, so the header's update-ready dot
   // can light up before the user has ever opened the settings bubble.
@@ -24,6 +29,23 @@
     // centres itself against the OS-rendered chrome instead of a
     // hard-coded value. No-ops on web / non-mac native.
     alignWithTrafficLights();
+  });
+
+  // Subscribe to the Rust side's "meetings-changed" event so the
+  // sidebar refreshes the moment the in-app MCP server schedules a
+  // new meeting. Without this, MCP-scheduled meetings would only
+  // appear at next launch. No-op on web — Tauri's event API is
+  // native-only.
+  $effect(() => {
+    if (!isNative) return;
+    let unlisten: (() => void) | null = null;
+    void (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen(MEETINGS_CHANGED_EVENT, () => {
+        void store.refreshMeetings();
+      });
+    })();
+    return () => unlisten?.();
   });
 
   // Subscribe to oats:// deep links. Cold-start URLs are replayed once
