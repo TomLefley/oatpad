@@ -81,6 +81,16 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
+// `initDeepLinks` is invoked by App.svelte's $effect on mount and
+// dynamic-imports the deep-link plugin. In jsdom that import resolves
+// to real plugin code that pokes window.__TAURI_INTERNALS__, which
+// surfaces as an unhandled rejection in CI even though the tests
+// themselves don't depend on it. Stub the plugin so the listener
+// resolves to a no-op unsubscriber.
+vi.mock("@tauri-apps/plugin-deep-link", () => ({
+  onOpenUrl: vi.fn().mockResolvedValue(() => {}),
+  getCurrent: vi.fn().mockResolvedValue(null),
+}));
 
 beforeEach(() => {
   storeState.meeting = null;
