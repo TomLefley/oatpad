@@ -60,7 +60,16 @@ export type MeetingSummary = {
   // (`meeting_started`, `file_loaded`) don't flip this — they fire
   // before the user has typed.
   started: boolean;
+  // Custom-protocol URL that opens this meeting in the Oatpad desktop
+  // app. Registered on macOS via tauri-plugin-deep-link.
+  link: string;
 };
+
+// Custom URL scheme registered by the desktop app. Mirrors the
+// constant in `src-web/lib/deepLink.ts`; both must agree on the form.
+export function meetingLink(meetingId: string): string {
+  return `oats://meeting/${meetingId}`;
+}
 
 export function isOatsFile(v: unknown): v is OatsFile {
   if (!v || typeof v !== "object") return false;
@@ -102,6 +111,7 @@ export function summaryOf(file: OatsFile): MeetingSummary {
       : {}),
     notetaker: file.notetaker,
     started,
+    link: meetingLink(file.meetingId),
   };
 }
 

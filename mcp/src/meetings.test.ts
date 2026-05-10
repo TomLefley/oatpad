@@ -16,6 +16,7 @@ import {
   isMcpEnabled,
   isOatsFile,
   listMeetings,
+  meetingLink,
   scheduleMeeting,
   summaryOf,
   type OatsFile,
@@ -177,6 +178,17 @@ describe("summaryOf", () => {
       ],
     };
     expect(summaryOf(file).started).toBe(true);
+  });
+
+  it("includes an oats://meeting/<id> deep link", () => {
+    const m = summaryOf(makeFile("abc-123", "M", "2026-04-27T10:00:00Z"));
+    expect(m.link).toBe("oats://meeting/abc-123");
+  });
+});
+
+describe("meetingLink", () => {
+  it("formats an `oats://meeting/<id>` URL", () => {
+    expect(meetingLink("abc-123")).toBe("oats://meeting/abc-123");
   });
 });
 
@@ -528,6 +540,7 @@ describe("scheduleMeeting", () => {
     expect(summary.meetingId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
+    expect(summary.link).toBe(`oats://meeting/${summary.meetingId}`);
 
     const onDisk = await getMeeting(dir, summary.meetingId);
     expect(onDisk).not.toBeNull();
