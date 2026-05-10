@@ -131,21 +131,32 @@ to disk and the localStorage key cleared.
 
 ## MCP server
 
-[`mcp/`](./mcp/README.md) packages the meeting data as an MCP bundle for
-Claude Desktop and other MCP-compatible clients. Read-only — three tools that
-list / fetch / range-query the autosaved meetings on disk.
+The MCP server runs **inside the Tauri app** (Rust,
+`src/src/mcp_server.rs`). When the toggle in Settings is on, it binds
+a Unix-domain socket at `~/Library/Application Support/dev.lefley.oatpad/mcp.sock`
+and serves four tools (list / fetch / range / schedule). Because it
+shares the running app's data directory, scheduled meetings appear in
+the sidebar immediately and the toggle starts/stops the listener in
+real time.
+
+[`mcp/`](./mcp/README.md) packages a small `.mcpb` bundle that Claude
+Desktop loads. The bundle is just a stdio↔Unix-socket proxy — Claude
+Desktop talks to it over stdio, it forwards every byte to the running
+app and back. If Oatpad isn't open (or the toggle is off) the proxy
+returns a friendly JSON-RPC error explaining why.
 
 ```sh
-just build-mcpb    # produces mcp/dist/oatpad.mcpb (~2.7 MB)
+just build-mcpb    # produces mcp/dist/oatpad.mcpb
 ```
 
-Drag the resulting `.mcpb` into Claude Desktop → Settings → MCP → Install
-bundle to attach the server.
+Drag the resulting `.mcpb` into Claude Desktop → Settings → MCP →
+Install bundle to attach it. Oatpad's Settings cog has a one-click
+button that does the same install via Launch Services.
 
 ## Project layout
 
 ```
 src/                Tauri v2 wrapper (Rust + tauri.conf) that produces the macOS .app
 src-web/            Svelte 5 + Vite frontend (shared by app + web)
-mcp/                Standalone Node MCP server packaged as an .mcpb bundle
+mcp/                Stdio↔Unix-socket proxy packaged as an .mcpb bundle
 ```
