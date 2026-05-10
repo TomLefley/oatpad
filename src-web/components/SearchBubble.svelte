@@ -13,6 +13,7 @@
   import Calendar from "@lucide/svelte/icons/calendar";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import X from "@lucide/svelte/icons/x";
 
   type Props = {
     onclose: () => void;
@@ -21,7 +22,10 @@
     // can outro). Bindable so the bubble's controls write through.
     searchMode: SearchMode;
     searchQuery: string;
-    selectedDate: string | null;
+    // rangeStart alone is a single-day filter; both set is an inclusive
+    // range. Both null = no date filter.
+    rangeStart: string | null;
+    rangeEnd: string | null;
     viewMonth: Date;
     // Active content height — the parent reads this to size the spacer
     // above the meeting list so the list slides clear in lockstep with
@@ -32,10 +36,13 @@
     onclose,
     searchMode = $bindable(),
     searchQuery = $bindable(),
-    selectedDate = $bindable(),
+    rangeStart = $bindable(),
+    rangeEnd = $bindable(),
     viewMonth = $bindable(),
     contentHeight = $bindable(),
   }: Props = $props();
+
+  const hasDateSelection = $derived(rangeStart !== null);
 
   let searchInputEl: HTMLInputElement | undefined = $state();
   let bubbleEl: HTMLDivElement | undefined = $state();
@@ -69,7 +76,13 @@
     new Set(store.state.meetings.map((m) => ymdLocal(new Date(m.createdAt)))),
   );
   const calendarCells = $derived(
-    buildCalendarCells(viewMonth, meetingDates, new Date()),
+    buildCalendarCells(
+      viewMonth,
+      meetingDates,
+      new Date(),
+      rangeStart,
+      rangeEnd,
+    ),
   );
 
   function shiftMonth(delta: number): void {
@@ -78,24 +91,57 @@
     viewMonth = monthStart(d);
   }
 
+  // Click model: 1st click sets a single-day filter (rangeStart only). 2nd
+  // click on a *different* day extends to a range, swapping endpoints if
+  // needed so start ≤ end. 3rd click (after a range is set) starts a fresh
+  // single-day selection. Re-clicking the start while no end is set clears.
   function pickDate(ymd: string): void {
-    // Re-clicking the active day clears the filter — saves a trip back to text mode.
-    selectedDate = selectedDate === ymd ? null : ymd;
+    if (rangeStart && rangeEnd) {
+      rangeStart = ymd;
+      rangeEnd = null;
+      return;
+    }
+    if (!rangeStart) {
+      rangeStart = ymd;
+      return;
+    }
+    if (ymd === rangeStart) {
+      rangeStart = null;
+      rangeEnd = null;
+      return;
+    }
+    if (ymd < rangeStart) {
+      rangeEnd = rangeStart;
+      rangeStart = ymd;
+    } else {
+      rangeEnd = ymd;
+    }
+  }
+
+  function clearTextQuery(): void {
+    searchQuery = "";
+    searchInputEl?.focus();
+  }
+
+  function clearDateSelection(): void {
+    rangeStart = null;
+    rangeEnd = null;
   }
 
   function enterDateMode(): void {
     searchMode = "date";
     // If a previously-selected date sits outside the current view, jump there
     // so the user sees their selection.
-    if (selectedDate) {
-      const [y, m] = selectedDate.split("-").map(Number);
+    if (rangeStart) {
+      const [y, m] = rangeStart.split("-").map(Number);
       viewMonth = new Date(y, m - 1, 1);
     }
   }
 
   async function enterTextMode(): Promise<void> {
     searchMode = "text";
-    selectedDate = null;
+    rangeStart = null;
+    rangeEnd = null;
     // Wait for Svelte to mount the input before focusing it.
     await tick();
     searchInputEl?.focus();
@@ -161,15 +207,27 @@
             placeholder="Search meetings"
             tabindex={searchMode === "text" ? 0 : -1}
           />
-          <button
-            class="mode-btn"
-            onclick={enterDateMode}
-            aria-label="Filter by date"
-            title="Filter by date"
-            tabindex={searchMode === "text" ? 0 : -1}
-          >
-            <Calendar size={14} strokeWidth={2} />
-          </button>
+          {#if searchQuery !== ""}
+            <button
+              class="mode-btn"
+              onclick={clearTextQuery}
+              aria-label="Clear search"
+              title="Clear search"
+              tabindex={searchMode === "text" ? 0 : -1}
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          {:else}
+            <button
+              class="mode-btn"
+              onclick={enterDateMode}
+              aria-label="Filter by date"
+              title="Filter by date"
+              tabindex={searchMode === "text" ? 0 : -1}
+            >
+              <Calendar size={14} strokeWidth={2} />
+            </button>
+          {/if}
         </div>
         <div
           class="cal"
@@ -178,15 +236,6 @@
           aria-hidden={searchMode !== "date"}
         >
           <div class="cal-header">
-            <button
-              class="mode-btn"
-              onclick={enterTextMode}
-              aria-label="Search by text"
-              title="Search by text"
-              tabindex={searchMode === "date" ? 0 : -1}
-            >
-              <Search size={13} strokeWidth={2} />
-            </button>
             <button
               class="cal-nav"
               onclick={() => shiftMonth(-1)}
@@ -206,6 +255,27 @@
             >
               <ChevronRight size={14} strokeWidth={2} />
             </button>
+            {#if hasDateSelection}
+              <button
+                class="mode-btn"
+                onclick={clearDateSelection}
+                aria-label="Clear date filter"
+                title="Clear date filter"
+                tabindex={searchMode === "date" ? 0 : -1}
+              >
+                <X size={13} strokeWidth={2} />
+              </button>
+            {:else}
+              <button
+                class="mode-btn"
+                onclick={enterTextMode}
+                aria-label="Search by text"
+                title="Search by text"
+                tabindex={searchMode === "date" ? 0 : -1}
+              >
+                <Search size={13} strokeWidth={2} />
+              </button>
+            {/if}
           </div>
           <div class="cal-weekdays" aria-hidden="true">
             <span>Mo</span><span>Tu</span><span>We</span><span>Th</span
@@ -220,7 +290,10 @@
                   class="cal-cell"
                   class:has-meeting={cell.hasMeeting}
                   class:today={cell.isToday}
-                  class:selected={selectedDate === cell.ymd}
+                  class:selected={cell.isRangeStart || cell.isRangeEnd}
+                  class:range-start={cell.isRangeStart && rangeEnd !== null}
+                  class:range-end={cell.isRangeEnd}
+                  class:in-range={cell.inRange}
                   onclick={() => pickDate(cell.ymd)}
                   aria-label={cell.ymd}
                   tabindex={searchMode === "date" ? 0 : -1}
@@ -470,6 +543,23 @@
   .cal-cell.selected {
     background: color-mix(in srgb, var(--accent) 28%, transparent);
     color: var(--accent);
+  }
+  /* In-range days get a softer wash than the endpoints, so the eye still
+     reads start/end as distinct anchors with a connecting fill between. */
+  .cal-cell.in-range {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+    border-radius: 0;
+  }
+  /* When endpoints are part of a multi-day range, square off the inner
+     edge of each so the wash flows visually into the in-range run. */
+  .cal-cell.range-start {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .cal-cell.range-end {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
   }
   .cal-cell.selected.has-meeting::after {
     background: var(--accent);

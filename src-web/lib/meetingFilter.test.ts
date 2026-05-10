@@ -22,34 +22,75 @@ describe("labelFor", () => {
 
 describe("filterMeetings", () => {
   it("returns all meetings in text mode with empty/whitespace query", () => {
-    expect(filterMeetings(MEETINGS, "text", "", null)).toEqual(MEETINGS);
-    expect(filterMeetings(MEETINGS, "text", "   ", null)).toEqual(MEETINGS);
+    expect(filterMeetings(MEETINGS, "text", "", null, null)).toEqual(MEETINGS);
+    expect(filterMeetings(MEETINGS, "text", "   ", null, null)).toEqual(
+      MEETINGS,
+    );
   });
 
   it("filters case-insensitively on the displayed label", () => {
-    const out = filterMeetings(MEETINGS, "text", "ROADMAP", null);
+    const out = filterMeetings(MEETINGS, "text", "ROADMAP", null, null);
     expect(out.map((m) => m.meetingId)).toEqual(["b", "d"]);
   });
 
   it("matches the 'meeting' fallback label for blank-titled meetings", () => {
-    const out = filterMeetings(MEETINGS, "text", "meet", null);
+    const out = filterMeetings(MEETINGS, "text", "meet", null, null);
     expect(out.map((m) => m.meetingId)).toContain("c");
   });
 
   it("returns all meetings in date mode with no selection", () => {
-    expect(filterMeetings(MEETINGS, "date", "", null)).toEqual(MEETINGS);
+    expect(filterMeetings(MEETINGS, "date", "", null, null)).toEqual(MEETINGS);
   });
 
-  it("filters by local YMD in date mode", () => {
+  it("filters by local YMD in date mode with a single day", () => {
     // Both 'c' and 'd' are 2026-04-27 in any timezone west of GMT-10.
     // Under UTC their createdAt's local YMD is 2026-04-27, so the test is
     // stable as long as the test runner's TZ sits between GMT-10 and GMT+13.
-    const out = filterMeetings(MEETINGS, "date", "", "2026-04-27");
+    const out = filterMeetings(MEETINGS, "date", "", "2026-04-27", null);
     expect(out.map((m) => m.meetingId).sort()).toEqual(["c", "d"]);
   });
 
   it("returns empty when no meeting matches the selected date", () => {
-    const out = filterMeetings(MEETINGS, "date", "", "1999-01-01");
+    const out = filterMeetings(MEETINGS, "date", "", "1999-01-01", null);
     expect(out).toEqual([]);
+  });
+
+  it("filters by inclusive range when both start and end are set", () => {
+    const out = filterMeetings(
+      MEETINGS,
+      "date",
+      "",
+      "2026-04-26",
+      "2026-04-27",
+    );
+    expect(out.map((m) => m.meetingId).sort()).toEqual(["b", "c", "d"]);
+  });
+
+  it("includes meetings on both endpoints of a range", () => {
+    const out = filterMeetings(
+      MEETINGS,
+      "date",
+      "",
+      "2026-04-25",
+      "2026-04-27",
+    );
+    expect(out.map((m) => m.meetingId).sort()).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("returns empty when no meeting falls within the range", () => {
+    const out = filterMeetings(
+      MEETINGS,
+      "date",
+      "",
+      "2027-01-01",
+      "2027-01-31",
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("treats end-only selection as no-op (acts like all meetings)", () => {
+    expect(filterMeetings(MEETINGS, "date", "", null, "2026-04-27")).toEqual(
+      MEETINGS,
+    );
   });
 });

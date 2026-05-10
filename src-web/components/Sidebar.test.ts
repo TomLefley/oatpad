@@ -301,6 +301,220 @@ describe("Sidebar — search bubble", () => {
     expect(cal?.classList.contains("active")).toBe(true);
   });
 
+  it("shows the calendar switcher while the text query is empty", async () => {
+    const { container } = await mountSidebar({ searchOpen: true });
+    expect(
+      container.querySelector('button[aria-label="Filter by date"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('.text-row button[aria-label="Clear search"]'),
+    ).toBeNull();
+  });
+
+  it("replaces the calendar switcher with a clear button while a query is entered", async () => {
+    const { container } = await mountSidebar({ searchOpen: true });
+    const input = container.querySelector(".search-input") as HTMLInputElement;
+    input.value = "stand";
+    await fireEvent.input(input);
+    await tick();
+    expect(
+      container.querySelector('button[aria-label="Filter by date"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('.text-row button[aria-label="Clear search"]'),
+    ).not.toBeNull();
+  });
+
+  it("clear button resets the text query", async () => {
+    const { container } = await mountSidebar({ searchOpen: true });
+    const input = container.querySelector(".search-input") as HTMLInputElement;
+    input.value = "stand";
+    await fireEvent.input(input);
+    await tick();
+    const clearBtn = container.querySelector(
+      '.text-row button[aria-label="Clear search"]',
+    ) as HTMLButtonElement;
+    await fireEvent.click(clearBtn);
+    await tick();
+    expect(
+      (container.querySelector(".search-input") as HTMLInputElement).value,
+    ).toBe("");
+    // All meetings are visible again.
+    expect(container.querySelectorAll(".row")).toHaveLength(3);
+  });
+
+  // Helpers for the date-mode tests that need the calendar to open on a
+  // month containing the fixture's meetings (April 2026). Pin "now" inside
+  // that month so monthStart(new Date()) lands on 2026-04-01.
+  function pinAprilTwentySix() {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 3, 15, 12, 0, 0));
+  }
+
+  it("a single click in date mode selects one day", async () => {
+    pinAprilTwentySix();
+    try {
+      const { container } = await mountSidebar({ searchOpen: true });
+      await fireEvent.click(
+        container.querySelector(
+          'button[aria-label="Filter by date"]',
+        ) as HTMLButtonElement,
+      );
+      await tick();
+      const target = container.querySelector(
+        '.cal-cell[aria-label="2026-04-27"]',
+      ) as HTMLButtonElement;
+      expect(target).not.toBeNull();
+      await fireEvent.click(target);
+      await tick();
+      const selected = container.querySelectorAll(".cal-cell.selected");
+      expect(selected).toHaveLength(1);
+      expect(selected[0]?.getAttribute("aria-label")).toBe("2026-04-27");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a second click on a later day extends the selection into a range", async () => {
+    pinAprilTwentySix();
+    try {
+      const { container } = await mountSidebar({ searchOpen: true });
+      await fireEvent.click(
+        container.querySelector(
+          'button[aria-label="Filter by date"]',
+        ) as HTMLButtonElement,
+      );
+      await tick();
+      const cellByYmd = (ymd: string) =>
+        container.querySelector(
+          `.cal-cell[aria-label="${ymd}"]`,
+        ) as HTMLButtonElement;
+      await fireEvent.click(cellByYmd("2026-04-27"));
+      await tick();
+      await fireEvent.click(cellByYmd("2026-04-29"));
+      await tick();
+      const selected = Array.from(
+        container.querySelectorAll(".cal-cell.selected"),
+      ).map((c) => c.getAttribute("aria-label"));
+      expect(selected.sort()).toEqual(["2026-04-27", "2026-04-29"]);
+      const inRange = Array.from(
+        container.querySelectorAll(".cal-cell.in-range"),
+      ).map((c) => c.getAttribute("aria-label"));
+      expect(inRange).toContain("2026-04-28");
+      // Filter resolves to all three meetings within the range.
+      const labels = Array.from(container.querySelectorAll(".row-label")).map(
+        (l) => l.textContent?.trim(),
+      );
+      expect(labels.sort()).toEqual(["Planning", "Retro", "Standup"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clicking a day before the current start swaps endpoints to keep start ≤ end", async () => {
+    pinAprilTwentySix();
+    try {
+      const { container } = await mountSidebar({ searchOpen: true });
+      await fireEvent.click(
+        container.querySelector(
+          'button[aria-label="Filter by date"]',
+        ) as HTMLButtonElement,
+      );
+      await tick();
+      const cellByYmd = (ymd: string) =>
+        container.querySelector(
+          `.cal-cell[aria-label="${ymd}"]`,
+        ) as HTMLButtonElement;
+      await fireEvent.click(cellByYmd("2026-04-29"));
+      await tick();
+      await fireEvent.click(cellByYmd("2026-04-27"));
+      await tick();
+      const selected = Array.from(
+        container.querySelectorAll(".cal-cell.selected"),
+      ).map((c) => c.getAttribute("aria-label"));
+      expect(selected.sort()).toEqual(["2026-04-27", "2026-04-29"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clicking a third day after a range is set starts a fresh single-day selection", async () => {
+    pinAprilTwentySix();
+    try {
+      const { container } = await mountSidebar({ searchOpen: true });
+      await fireEvent.click(
+        container.querySelector(
+          'button[aria-label="Filter by date"]',
+        ) as HTMLButtonElement,
+      );
+      await tick();
+      const cellByYmd = (ymd: string) =>
+        container.querySelector(
+          `.cal-cell[aria-label="${ymd}"]`,
+        ) as HTMLButtonElement;
+      await fireEvent.click(cellByYmd("2026-04-27"));
+      await fireEvent.click(cellByYmd("2026-04-29"));
+      await fireEvent.click(cellByYmd("2026-04-28"));
+      await tick();
+      const selected = Array.from(
+        container.querySelectorAll(".cal-cell.selected"),
+      ).map((c) => c.getAttribute("aria-label"));
+      expect(selected).toEqual(["2026-04-28"]);
+      expect(container.querySelectorAll(".cal-cell.in-range")).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("date-mode clear button only appears once a day is picked, and clears the selection", async () => {
+    pinAprilTwentySix();
+    try {
+      const { container } = await mountSidebar({ searchOpen: true });
+      await fireEvent.click(
+        container.querySelector(
+          'button[aria-label="Filter by date"]',
+        ) as HTMLButtonElement,
+      );
+      await tick();
+      expect(
+        container.querySelector('.cal button[aria-label="Clear date filter"]'),
+      ).toBeNull();
+      const cell = container.querySelector(
+        '.cal-cell[aria-label="2026-04-27"]',
+      ) as HTMLButtonElement;
+      await fireEvent.click(cell);
+      await tick();
+      const clearBtn = container.querySelector(
+        '.cal button[aria-label="Clear date filter"]',
+      ) as HTMLButtonElement;
+      expect(clearBtn).not.toBeNull();
+      await fireEvent.click(clearBtn);
+      await tick();
+      expect(container.querySelectorAll(".cal-cell.selected")).toHaveLength(0);
+      // The mode-toggle (back to text) is visible again now nothing's selected.
+      expect(
+        container.querySelector('.cal button[aria-label="Search by text"]'),
+      ).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cal-header places the action button after the chevrons (right-aligned, mirroring text mode)", async () => {
+    const { container } = await mountSidebar({ searchOpen: true });
+    await fireEvent.click(
+      container.querySelector(
+        'button[aria-label="Filter by date"]',
+      ) as HTMLButtonElement,
+    );
+    await tick();
+    const header = container.querySelector(".cal-header") as HTMLElement;
+    const children = Array.from(header.children);
+    expect(children[0]?.getAttribute("aria-label")).toBe("Previous month");
+    const last = children[children.length - 1];
+    expect(last?.getAttribute("aria-label")).toBe("Search by text");
+  });
+
   it("preserves date mode and the selected date across close/reopen", async () => {
     const { container, rerender } = await mountSidebar({ searchOpen: true });
     // Switch to date mode and pick a day.
