@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/TomLefley/oatpad/compare/v0.10.0...v0.10.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* align restart button height with other icon buttons ([#49](https://github.com/TomLefley/oatpad/issues/49)) ([253dfc9](https://github.com/TomLefley/oatpad/commit/253dfc926b11d588445c083704f00ef0dc8663b6))
+
 ## [0.10.0](https://github.com/TomLefley/oatpad/compare/v0.9.0...v0.10.0) (2026-05-10)
 
 

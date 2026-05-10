@@ -1,6 +1,6 @@
 [package]
 name = "oatpad"
-version = "0.10.0" # x-release-please-version
+version = "0.10.1" # x-release-please-version
 description = "Meeting notes app with timestamped edit history"
 authors = ["Tom Shelton-Lefley"]
 edition = "2021"
