@@ -145,10 +145,11 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 6px;
-    /* Negative margins extend the hit area without nudging the row's
-       baseline alignment relative to the right-side action buttons. */
-    margin: -2px -6px;
+    height: 26px;
+    padding: 0 6px;
+    /* Negative horizontal margin extends the hit area to the row's left
+       edge so the click target lines up with the version span it replaces. */
+    margin: 0 -6px;
     border-radius: 6px;
     color: var(--accent);
     cursor: pointer;
