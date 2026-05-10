@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/TomLefley/oatpad/compare/v0.11.0...v0.12.0) (2026-05-10)
+
+
+### Features
+
+* run the MCP server inside the Tauri app ([#53](https://github.com/TomLefley/oatpad/issues/53)) ([7e4a7d2](https://github.com/TomLefley/oatpad/commit/7e4a7d252e31385558eb65ac2593e487fe994e15))
+
 ## [0.11.0](https://github.com/TomLefley/oatpad/compare/v0.10.1...v0.11.0) (2026-05-10)
 
 
