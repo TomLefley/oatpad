@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/TomLefley/oatpad/compare/v0.10.1...v0.11.0) (2026-05-10)
+
+
+### Features
+
+* add oats:// deep-link handler and surface link in MCP ([#51](https://github.com/TomLefley/oatpad/issues/51)) ([1c593ed](https://github.com/TomLefley/oatpad/commit/1c593ed85f781ce27c54d55635292c6258a69a9a))
+
 ## [0.10.1](https://github.com/TomLefley/oatpad/compare/v0.10.0...v0.10.1) (2026-05-10)
 
 
