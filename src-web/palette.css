@@ -1,0 +1,41 @@
+/* Oatpad colour palette — single source of truth.
+   Every theme-aware colour the UI reads lives here, paired through
+   light-dark() so each value is written exactly once. Tweak in this
+   file and the whole app follows. */
+
+:root {
+  /* light-dark() resolves against this. The data-theme overrides
+     below pin it when the user picks a theme explicitly. */
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --bg: light-dark(#faf6ed, #1a1611);
+  --surface: light-dark(#fffdf7, #231e17);
+  --surface-hover: light-dark(#f1ebdc, #2f2920);
+
+  /* Type */
+  --fg: light-dark(#1f1a12, #ece4d2);
+  --muted: light-dark(#7a6f5c, #9a8f7a);
+
+  /* Lines */
+  --border: light-dark(#e4dac3, #3a3228);
+
+  /* Interactive accents */
+  --accent: light-dark(#8b6a3e, #d4b382);
+  --icon: light-dark(#6a5a42, #b8a98f);
+  --icon-active: light-dark(#8b6a3e, #d4b382);
+  --link: light-dark(#6b8fb5, #9db8d4);
+  --danger: light-dark(#b04030, #d57865);
+
+  /* Derived tokens — colour-side of the bubble UI primitive. */
+  --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
+  --bubble-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+/* Explicit theme picks resolve light-dark() to a single mode. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}

@@ -1,152 +1,13 @@
-:root {
-  --bg: #faf6ed;
-  --surface: #fffdf7;
-  --surface-hover: #f1ebdc;
-  --fg: #1f1a12;
-  --muted: #7a6f5c;
-  --border: #e4dac3;
-  --accent: #8b6a3e;
-  --icon: #6a5a42;
-  --icon-active: #8b6a3e;
-  --link: #6b8fb5;
-  --danger: #b04030;
-  --font-sans:
-    "Manrope Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Helvetica, Arial, sans-serif;
-  color-scheme: light;
+/* App-level global styles. Design tokens live in their own files:
+     - palette.css      colour palette (light/dark via light-dark())
+     - motion.css       animation durations and easings
+     - typography.css   font stack and base text rules
+     - layout.css       icon-tray, sidebar, and bubble geometry atoms
+   See DESIGN.md for the design system overview. */
 
-  font-family: var(--font-sans);
-  font-weight: 400;
+:root {
   color: var(--fg);
   background: var(--bg);
-
-  /* Header / sidebar layout atoms. The native icon tray must clear the
-     macOS traffic-light cluster on its left and fit four 32px icon slots
-     plus gaps + paddings on its right. The bubbles in Sidebar.svelte
-     position their arrows by deriving offsets from these atoms — all the
-     hand-derived px values in the sibling components flow from here.
-     Changing any atom propagates to:
-       - Header.svelte (.left-col, .icon-btn, .expanded-icons)
-       - Sidebar.svelte (.search-arrow, .settings-arrow, .{search,settings}-bubble)
-       - App.svelte's MIN_W floor */
-  --icon-size: 32px;
-  --icon-gap: 4px;
-  --traffic-light-clearance: 92px;
-  --tray-padding-right: 12px;
-  --expanded-icons-margin-right: 4px;
-  --bubble-margin: 12px;
-  --bubble-arrow-half: 6px;
-
-  /* Distance from the sidebar's right edge to the centre of each icon
-     in the expanded tray, going right-to-left through the slots. The
-     bubble arrows position themselves relative to the icon they point
-     at by subtracting the bubble's right margin and the arrow's half-
-     width from these centres. */
-  --tray-toggle-center: calc(
-    var(--tray-padding-right) + var(--icon-size) / 2
-  );
-  --tray-new-center: calc(
-    var(--tray-toggle-center) + var(--icon-size) / 2
-    + var(--expanded-icons-margin-right) + var(--icon-size) / 2
-  );
-  --tray-search-center: calc(
-    var(--tray-new-center) + var(--icon-size) / 2
-    + var(--icon-gap) + var(--icon-size) / 2
-  );
-  --tray-settings-center: calc(
-    var(--tray-search-center) + var(--icon-size) / 2
-    + var(--icon-gap) + var(--icon-size) / 2
-  );
-
-  /* Shared animation tokens. Components reach for these instead of
-     inlining literal durations so the app's motion language stays
-     coherent when we tune it. Names describe intent, not value:
-     a "pop" should feel like a pop everywhere it's used.
-
-       --anim-fast       cheap hover / colour transitions (120ms)
-       --anim-slide      sidebar/spacer height changes (180ms)
-       --anim-pop        bubble entry pop (160ms)
-       --anim-wobble     list / editor settle wobble (340ms)
-       --anim-dot        notification-dot pop-in (220ms)
-       --anim-collapse   header collapse-tray hold window (600ms)
-       --anim-wobble-window
-                         time the wobble class stays on after a
-                         spacer close (700ms — long enough for the
-                         staggered settle to finish)
-
-     Easings:
-       --ease-spring     gentle overshoot, bubble open / spacer
-       --ease-bounce     pronounced overshoot, list / editor settle
-
-     The wobble vertical amplitudes for the editor area mirror the
-     list's `--amp` formula: a few px max with a gentle decay so deep
-     elements settle quietly. */
-  --anim-fast: 120ms;
-  --anim-slide: 180ms;
-  --anim-pop: 160ms;
-  --anim-wobble: 340ms;
-  --anim-dot: 220ms;
-  --anim-collapse: 600ms;
-  --anim-wobble-window: 700ms;
-  --ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
-  --ease-bounce: cubic-bezier(0.32, 1.85, 0.6, 1);
-
-  /* Bubble layout atoms — picked to match SearchBubble so every
-     drop-down bubble in the app reads as the same UI primitive. */
-  --bubble-radius: 14px;
-  --bubble-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-  --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
-  /* Vertical breathing above the bubble's body — the area the arrow
-     occupies. Single number used by both SearchBubble and
-     DateTimeBubble so their arrow tips line up. */
-  --bubble-arrow-padding: 6px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1a1611;
-    --surface: #231e17;
-    --surface-hover: #2f2920;
-    --fg: #ece4d2;
-    --muted: #9a8f7a;
-    --border: #3a3228;
-    --accent: #d4b382;
-    --icon: #b8a98f;
-    --icon-active: #d4b382;
-    --link: #9db8d4;
-    --danger: #d57865;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="light"] {
-  --bg: #faf6ed;
-  --surface: #fffdf7;
-  --surface-hover: #f1ebdc;
-  --fg: #1f1a12;
-  --muted: #7a6f5c;
-  --border: #e4dac3;
-  --accent: #8b6a3e;
-  --icon: #6a5a42;
-  --icon-active: #8b6a3e;
-  --link: #6b8fb5;
-  --danger: #b04030;
-  color-scheme: light;
-}
-
-:root[data-theme="dark"] {
-  --bg: #1a1611;
-  --surface: #231e17;
-  --surface-hover: #2f2920;
-  --fg: #ece4d2;
-  --muted: #9a8f7a;
-  --border: #3a3228;
-  --accent: #d4b382;
-  --icon: #b8a98f;
-  --icon-active: #d4b382;
-  --link: #9db8d4;
-  --danger: #d57865;
-  color-scheme: dark;
 }
 
 * {
@@ -258,17 +119,16 @@ input[type="text"] {
   color: var(--link);
 }
 .ql-bubble .ql-tooltip {
-  --tooltip-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
-  background: var(--tooltip-bg) !important;
+  background: var(--bubble-bg) !important;
   border: none !important;
   color: var(--fg);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--bubble-shadow);
 }
 .ql-bubble .ql-tooltip:not(.ql-flip) .ql-tooltip-arrow {
-  border-bottom-color: var(--tooltip-bg) !important;
+  border-bottom-color: var(--bubble-bg) !important;
 }
 .ql-bubble .ql-tooltip.ql-flip .ql-tooltip-arrow {
-  border-top-color: var(--tooltip-bg) !important;
+  border-top-color: var(--bubble-bg) !important;
 }
 .ql-bubble .ql-tooltip input[type="text"] {
   background: var(--bg);

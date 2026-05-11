@@ -1,0 +1,32 @@
+/* Oatpad motion tokens — the app's motion vocabulary.
+   Components reach for these names instead of inlining literal
+   durations or easings so the motion language stays coherent when
+   we tune it. Names describe intent, not value:
+   a "pop" should feel like a pop everywhere it's used. */
+
+:root {
+  /* Durations ----------------------------------------------------
+     --anim-fast      cheap hover / colour transitions
+     --anim-slide     sidebar/spacer height & width changes
+     --anim-pop       bubble entry pop
+     --anim-wobble    list / editor settle wobble
+     --anim-dot       notification-dot pop-in
+     --anim-collapse  header collapse-tray hold window
+     --anim-wobble-window
+                      how long the wobble class stays on after a
+                      spacer close (long enough for the staggered
+                      settle to finish) */
+  --anim-fast: 120ms;
+  --anim-slide: 180ms;
+  --anim-pop: 160ms;
+  --anim-wobble: 340ms;
+  --anim-dot: 220ms;
+  --anim-collapse: 600ms;
+  --anim-wobble-window: 700ms;
+
+  /* Easings ------------------------------------------------------
+     --ease-spring   gentle overshoot — bubble open, spacer expand
+     --ease-bounce   pronounced overshoot — list / editor settle */
+  --ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.32, 1.85, 0.6, 1);
+}

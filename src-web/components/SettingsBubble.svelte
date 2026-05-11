@@ -69,7 +69,6 @@
     z-index: 1;
   }
   .search-bubble {
-    --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
     position: relative;
     padding-top: 6px;
     /* The entry uses a CSS animation rather than a Svelte transition because
@@ -126,7 +125,7 @@
   .search-body {
     background: var(--bubble-bg);
     border-radius: 18px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--bubble-shadow);
   }
   .settings-body {
     padding: 8px 12px 10px;

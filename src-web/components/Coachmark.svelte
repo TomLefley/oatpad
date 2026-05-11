@@ -104,7 +104,6 @@
 
 <style>
   .coachmark {
-    --bubble-bg: color-mix(in srgb, var(--surface) 70%, var(--fg) 30%);
     position: fixed;
     z-index: 100;
     padding-top: 6px;
@@ -154,7 +153,7 @@
     gap: 4px;
     background: var(--bubble-bg);
     border-radius: 18px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    box-shadow: var(--bubble-shadow);
     padding: 6px 6px 6px 14px;
     color: var(--fg);
     font-size: 13px;

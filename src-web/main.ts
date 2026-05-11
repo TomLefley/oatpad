@@ -7,6 +7,12 @@ import { loadSpacing, applySpacing } from "./lib/spacing";
 import "@fontsource-variable/manrope";
 import "@fontsource/poppins/600.css";
 import "quill/dist/quill.bubble.css";
+// Design tokens — imported before app.css so component styles can
+// reference them. See DESIGN.md for the design system overview.
+import "./palette.css";
+import "./motion.css";
+import "./typography.css";
+import "./layout.css";
 import "./app.css";
 
 applyTheme(loadTheme());

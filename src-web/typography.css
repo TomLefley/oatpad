@@ -1,0 +1,17 @@
+/* Oatpad typography tokens — the font stack and shared text rules.
+   Sizes are intentionally not tokenised: most of the app's text
+   sizes live alongside the component that owns them, and copying
+   them into shared tokens would make changes harder to reason about
+   rather than easier. Add a token here only when a size genuinely
+   recurs across unrelated components. */
+
+:root {
+  --font-sans:
+    "Manrope Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
