@@ -270,15 +270,15 @@
      keep the trash (now a check) visible regardless of hover so the
      user can see exactly what's about to vanish. */
   .row.confirming {
-    background: color-mix(in srgb, var(--danger, #d33) 14%, transparent);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
   }
   .row.confirming.current {
-    background: color-mix(in srgb, var(--danger, #d33) 22%, transparent);
+    background: color-mix(in srgb, var(--danger) 22%, transparent);
   }
   .row.confirming .row-label,
   .row.confirming .row-time,
   .row.confirming .row-del,
   .row.confirming .row-del:hover {
-    color: var(--danger, #d33);
+    color: var(--danger);
   }
 </style>
