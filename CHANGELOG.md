@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/TomLefley/oatpad/compare/v0.13.0...v1.0.0) (2026-05-13)
+
+
+### Features
+
+* graduate to v1.0.0 ([#58](https://github.com/TomLefley/oatpad/issues/58)) ([51028d9](https://github.com/TomLefley/oatpad/commit/51028d912f32cc9efcb9fb2f5ae16f6cdbd2fdd8))
+
 ## [0.13.0](https://github.com/TomLefley/oatpad/compare/v0.12.0...v0.13.0) (2026-05-10)
 
 
