@@ -1,7 +1,7 @@
 {
   "name": "oatpad-mcp",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Stdio↔Unix-socket proxy that bridges Claude Desktop to Oatpad's in-app MCP server",
   "scripts": {

@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "oatpad",
   "display_name": "Oatpad",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Search Oatpad meetings by title, fetch one by id, pull every meeting in a date range, or schedule a new meeting for a future slot.",
   "long_description": "Bridges Claude Desktop to the MCP server running inside the Oatpad macOS app. The bundle is a thin proxy: it forwards JSON-RPC frames over a Unix-domain socket the app exposes inside its application data directory. Because the server lives inside the running app, scheduled meetings appear in Oatpad immediately and the toggle in Settings starts/stops the server in real time. If Oatpad isn't running (or its MCP toggle is off) the proxy reports a friendly error.",
   "author": {
