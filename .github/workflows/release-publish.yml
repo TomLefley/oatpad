@@ -102,7 +102,7 @@ jobs:
           echo "id=$run_id" >> "$GITHUB_OUTPUT"
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: macos-bundle
           path: bundle/

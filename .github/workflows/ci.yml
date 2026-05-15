@@ -83,6 +83,10 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src -> target
+          # Don't cache $CARGO_HOME/bin: on macOS runners the cached rustup
+          # proxies can restore in a broken state, making `cargo` resolve
+          # to rustup-init and fail with "unexpected argument 'check'".
+          cache-bin: false
 
       - name: Install dependencies
         run: npm ci
