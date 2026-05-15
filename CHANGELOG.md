@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/TomLefley/oatpad/compare/v1.0.0...v1.0.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* bump devalue from 5.7.1 to 5.8.1 ([#60](https://github.com/TomLefley/oatpad/issues/60)) ([60b94eb](https://github.com/TomLefley/oatpad/commit/60b94ebae3cde4bf363af68a7d1fd842e965e2f5))
+* bump tokio in /src in the minor-and-patch group ([#64](https://github.com/TomLefley/oatpad/issues/64)) ([9d3c261](https://github.com/TomLefley/oatpad/commit/9d3c26190c2910c1177a82beeefb22367a6ac64f))
+* **ci:** disable cache-bin in rust-cache to stop intermittent failures ([24932f9](https://github.com/TomLefley/oatpad/commit/24932f9b3cf87bb9e90a7a5475a82ba825915cd0))
+
 ## [1.0.0](https://github.com/TomLefley/oatpad/compare/v0.13.0...v1.0.0) (2026-05-13)
 
 
